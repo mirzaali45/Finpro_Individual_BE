@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{#if isOverdue}}Overdue Invoice{{else}}Payment Reminder{{/if}}</title>
+  <title>Payment Confirmation for Invoice #{{invoiceNumber}}</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -31,7 +31,7 @@
       margin-bottom: 15px;
     }
     .title {
-      color: {{#if isOverdue}}#e74c3c{{else}}#2c3e50{{/if}};
+      color: #27ae60;
       font-size: 24px;
       font-weight: 600;
       margin: 0;
@@ -49,7 +49,7 @@
       border-radius: 6px;
       padding: 15px;
       margin-bottom: 25px;
-      border-left: 5px solid {{#if isOverdue}}#e74c3c{{else}}#3498db{{/if}};
+      border-left: 5px solid #27ae60;
     }
     .invoice-details table {
       width: 100%;
@@ -65,18 +65,18 @@
     .amount {
       font-size: 20px;
       font-weight: 700;
-      color: {{#if isOverdue}}#e74c3c{{else}}#2980b9{{/if}};
+      color: #27ae60;
     }
     .status {
       font-weight: bold;
-      color: #e74c3c;
+      color: #27ae60;
     }
     .payment-info {
-      background-color: {{#if isOverdue}}#fdf2f0{{else}}#f0f7fb{{/if}};
+      background-color: #f0fbf6;
       border-radius: 6px;
       padding: 15px;
       margin-bottom: 25px;
-      border-left: 5px solid {{#if isOverdue}}#e74c3c{{else}}#3498db{{/if}};
+      border-left: 5px solid #27ae60;
     }
     .payment-method {
       margin-bottom: 10px;
@@ -100,7 +100,7 @@
     }
     .btn {
       display: inline-block;
-      background-color: {{#if isOverdue}}#e74c3c{{else}}#3498db{{/if}};
+      background-color: #27ae60;
       color: white;
       text-decoration: none;
       padding: 12px 25px;
@@ -110,7 +110,7 @@
       transition: background 0.3s;
     }
     .btn:hover {
-      background-color: {{#if isOverdue}}#c0392b{{else}}#2980b9{{/if}};
+      background-color: #219653;
     }
     .btn-container {
       text-align: center;
@@ -147,18 +147,14 @@
       {{#if companyLogo}}
       <img src="{{companyLogo}}" alt="{{businessName}}" class="logo">
       {{/if}}
-      <h1 class="title">{{#if isOverdue}}OVERDUE INVOICE{{else}}Payment Reminder{{/if}}</h1>
+      <h1 class="title">Payment Confirmation</h1>
       <p class="subtitle">{{businessName}}</p>
     </div>
     
     <div class="content">
       <p>Hello {{clientName}},</p>
       
-      {{#if isOverdue}}
-      <p>We would like to remind you that the following invoice <strong style="color: #e74c3c;">is now overdue</strong> and requires your immediate attention:</p>
-      {{else}}
-      <p>We would like to remind you about the following invoice that will be due soon:</p>
-      {{/if}}
+      <p>We're pleased to confirm that your payment has been received for the following invoice:</p>
       
       <div class="invoice-details">
         <table>
@@ -167,26 +163,30 @@
             <td>{{invoiceNumber}}</td>
           </tr>
           <tr>
-            <td>Due Date:</td>
-            <td>{{dueDate}}</td>
+            <td>Payment Date:</td>
+            <td>{{paymentDate}}</td>
           </tr>
           <tr>
-            <td>Total Amount:</td>
+            <td>Amount Paid:</td>
             <td class="amount">{{amount}}</td>
           </tr>
-          {{#if isOverdue}}
+          <tr>
+            <td>Payment Method:</td>
+            <td>{{paymentMethod}}</td>
+          </tr>
           <tr>
             <td>Status:</td>
-            <td class="status">OVERDUE</td>
+            <td class="status">{{paymentStatus}}</td>
           </tr>
-          {{/if}}
         </table>
       </div>
       
-      {{#if bankAccounts}}
+      <p>{{#if isPartial}}Your payment has been received, but there is still a remaining balance on this invoice. Please consider settling the full amount to avoid any late fees.{{else}}Thank you for your payment. Your invoice has been fully paid.{{/if}}</p>
+      
+      {{#if remainingBalance}}
       <div class="payment-info">
-        <h3 style="margin-top: 0; color: {{#if isOverdue}}#e74c3c{{else}}#2c3e50{{/if}};">Payment Information</h3>
-        <p>Please make your payment using one of the following methods:</p>
+        <h3 style="margin-top: 0; color: #2c3e50;">Remaining Balance Information</h3>
+        <p>Your invoice has a remaining balance of <strong>{{remainingBalance}}</strong> that needs to be paid.</p>
         
         {{#if bankAccounts}}
         <div class="payment-method">
@@ -216,23 +216,19 @@
         </div>
         {{/if}}
         
-        <p class="payment-note">Please include the invoice number {{invoiceNumber}} when making payment to help us verify your transaction. and if already please send proof of payment via email or phone number</p>
+        <p class="payment-note">Please include the invoice number {{invoiceNumber}} when making payment to help us verify your transaction.</p>
       </div>
       {{/if}}
       
-      <p>The complete invoice has been re-attached as a PDF file to this email for your convenience.</p>
-      
-      <p>{{#if isOverdue}}Please make the payment as soon as possible to avoid late fees or further action.{{else}}Please make the payment before the due date to avoid late fees.{{/if}}</p>
+      <p>If you have any questions about this payment or your invoice, please don't hesitate to contact us.</p>
       
       {{#if paymentLink}}
       <div class="btn-container">
-        <a href="{{paymentLink}}" class="btn">{{#if isOverdue}}Pay Now{{else}}Make Payment{{/if}}</a>
+        <a href="{{paymentLink}}" class="btn">{{#if isPartial}}Pay Remaining Balance{{else}}View Invoice Details{{/if}}</a>
       </div>
       {{/if}}
       
-      <p>If you have already made the payment, please disregard this email and we apologize for any inconvenience.</p>
-      
-      <p>If you have any questions about this invoice or are experiencing difficulty with payment, please contact our team.</p>
+      <p>Thank you for your business!</p>
     </div>
     
     <div class="footer">

@@ -291,7 +291,19 @@ export const sendInvoiceWithPdf = async (
   businessPhone: string,
   businessAddress: string,
   pdfBuffer: Buffer,
-  paymentLink?: string | null // Ubah di sini
+  paymentLink?: string | null,
+  bankAccounts?: Array<{
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null,
+  eWallets?: Array<{
+    wallet_type: string;
+    phone_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null
 ): Promise<boolean> => {
   try {
     if (process.env.SKIP_EMAIL_SENDING === "true") {
@@ -311,53 +323,23 @@ export const sendInvoiceWithPdf = async (
       "invoice-email.hbs"
     );
 
-    // Periksa apakah template ada
+    // Check if template exists
     let html = "";
     if (!fs.existsSync(templatePath)) {
       console.error(`Template file not found: ${templatePath}`);
-      // Gunakan template hardcoded jika file tidak ditemukan
+      // Use hardcoded template if file not found
       html = `<!DOCTYPE html>
         <html>
           <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; }
-              .container { max-width: 600px; margin: 0 auto; }
-              .header { text-align: center; padding: 20px 0; }
-              .content { padding: 20px 0; }
-              .invoice-details { background: #f7f7f7; padding: 15px; margin: 15px 0; }
-              .footer { text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 20px; }
-            </style>
+            <title>Invoice from ${businessName}</title>
+            <!-- Inline styles here -->
           </head>
           <body>
-            <div class="container">
-              <div class="header">
-                <h1>Invoice dari ${businessName}</h1>
-              </div>
-              <div class="content">
-                <p>Halo ${clientName},</p>
-                <p>Kami telah melampirkan invoice untuk layanan/produk yang telah kami sediakan:</p>
-                <div class="invoice-details">
-                  <p><strong>No. Invoice:</strong> ${invoiceNumber}</p>
-                  <p><strong>Jatuh Tempo:</strong> ${dueDate}</p>
-                  <p><strong>Total:</strong> ${amount}</p>
-                </div>
-                <p>Invoice lengkap telah kami lampirkan sebagai file PDF dalam email ini.</p>
-                ${
-                  paymentLink
-                    ? `<p><a href="${paymentLink}" style="display: inline-block; background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Bayar Sekarang</a></p>`
-                    : ""
-                }
-              </div>
-              <div class="footer">
-                <p>&copy; ${new Date().getFullYear()} ${businessName}. Seluruh hak cipta dilindungi.</p>
-                <p>${businessPhone} | ${businessEmail}</p>
-                <p>${businessAddress}</p>
-              </div>
-            </div>
+            <!-- Basic template -->
           </body>
         </html>`;
     } else {
-      // Gunakan template file jika ada
+      // Use template file if exists
       const templateSource = fs.readFileSync(templatePath, "utf-8");
       const compiledTemplate = handlebars.compile(templateSource);
 
@@ -371,15 +353,15 @@ export const sendInvoiceWithPdf = async (
         businessPhone,
         businessAddress,
         paymentLink,
+        bankAccounts,
+        eWallets,
         currentYear: new Date().getFullYear(),
-        issueDate: new Date().toLocaleDateString("id-ID", {
+        issueDate: new Date().toLocaleDateString("en-US", {
           day: "numeric",
           month: "long",
           year: "numeric",
         }),
-        // Tambahkan jika ada logo perusahaan
         companyLogo: process.env.COMPANY_LOGO_URL || null,
-        // Tambahkan jika ada social media
         socialLinks: [
           { name: "Website", url: process.env.COMPANY_WEBSITE || "#" },
           { name: "LinkedIn", url: process.env.COMPANY_LINKEDIN || "#" },
@@ -387,11 +369,11 @@ export const sendInvoiceWithPdf = async (
       });
     }
 
-    // Kirim email dengan attachment PDF
+    // Send email with PDF attachment
     const info = await transporter.sendMail({
       from: `"${businessName}" <${MAIL_FROM}>`,
       to: email,
-      subject: `Invoice #${invoiceNumber} dari ${businessName}`,
+      subject: `Invoice #${invoiceNumber} from ${businessName}`,
       html,
       attachments: [
         {
@@ -410,7 +392,6 @@ export const sendInvoiceWithPdf = async (
   }
 };
 
-// Di mailer.ts
 export const sendReminderWithPdf = async (
   email: string,
   invoiceNumber: string,
@@ -423,7 +404,19 @@ export const sendReminderWithPdf = async (
   businessAddress: string,
   pdfBuffer: Buffer,
   isOverdue: boolean = false,
-  paymentLink?: string | null
+  paymentLink?: string | null,
+  bankAccounts?: Array<{
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null,
+  eWallets?: Array<{
+    wallet_type: string;
+    phone_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null
 ): Promise<boolean> => {
   try {
     if (process.env.SKIP_EMAIL_SENDING === "true") {
@@ -444,77 +437,23 @@ export const sendReminderWithPdf = async (
       "reminder-invoice-email.hbs"
     );
 
-    // Periksa apakah template ada
+    // Check if template exists
     let html = "";
     if (!fs.existsSync(templatePath)) {
       console.error(`Template file not found: ${templatePath}`);
-      // Gunakan template hardcoded jika file tidak ditemukan
+      // Use hardcoded template if file not found
       html = `<!DOCTYPE html>
         <html>
           <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; }
-              .container { max-width: 600px; margin: 0 auto; }
-              .header { text-align: center; padding: 20px 0; }
-              .content { padding: 20px 0; }
-              .invoice-details { background: #f7f7f7; padding: 15px; margin: 15px 0; }
-              .footer { text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 20px; }
-              .overdue { color: #e74c3c; font-weight: bold; }
-              .btn { display: inline-block; background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
-              .btn-warning { background: #e74c3c; }
-            </style>
+            <title>${isOverdue ? "OVERDUE INVOICE" : "Payment Reminder"}</title>
+            <!-- Inline styles here -->
           </head>
           <body>
-            <div class="container">
-              <div class="header">
-                <h1>${
-                  isOverdue
-                    ? "INVOICE JATUH TEMPO"
-                    : "Pengingat Pembayaran Invoice"
-                }</h1>
-              </div>
-              <div class="content">
-                <p>Halo ${clientName},</p>
-                ${
-                  isOverdue
-                    ? `<p>Kami ingin mengingatkan bahwa invoice berikut <span class="overdue">telah jatuh tempo</span>:</p>`
-                    : `<p>Kami ingin mengingatkan Anda tentang invoice berikut yang akan segera jatuh tempo:</p>`
-                }
-                <div class="invoice-details">
-                  <p><strong>No. Invoice:</strong> ${invoiceNumber}</p>
-                  <p><strong>Jatuh Tempo:</strong> ${dueDate}</p>
-                  <p><strong>Total:</strong> ${amount}</p>
-                  ${
-                    isOverdue
-                      ? `<p class="overdue">Status: JATUH TEMPO</p>`
-                      : ""
-                  }
-                </div>
-                <p>Invoice lengkap telah kami lampirkan kembali sebagai file PDF dalam email ini untuk kemudahan Anda.</p>
-                ${
-                  paymentLink
-                    ? `<p style="text-align: center; margin-top: 30px;">
-                      <a href="${paymentLink}" class="btn ${
-                        isOverdue ? "btn-warning" : ""
-                      }">${
-                        isOverdue ? "Bayar Sekarang" : "Lakukan Pembayaran"
-                      }</a>
-                    </p>`
-                    : ""
-                }
-                <p>Jika Anda telah melakukan pembayaran, harap abaikan email ini dan kami mohon maaf atas ketidaknyamanannya.</p>
-                <p>Jika Anda memiliki pertanyaan tentang invoice ini, silakan hubungi kami di ${businessEmail} atau ${businessPhone}.</p>
-              </div>
-              <div class="footer">
-                <p>&copy; ${new Date().getFullYear()} ${businessName}. Seluruh hak cipta dilindungi.</p>
-                <p>${businessPhone} | ${businessEmail}</p>
-                <p>${businessAddress}</p>
-              </div>
-            </div>
+            <!-- Basic template -->
           </body>
         </html>`;
     } else {
-      // Gunakan template file jika ada
+      // Use template file if exists
       const templateSource = fs.readFileSync(templatePath, "utf-8");
       const compiledTemplate = handlebars.compile(templateSource);
 
@@ -529,10 +468,10 @@ export const sendReminderWithPdf = async (
         businessAddress,
         paymentLink,
         isOverdue,
+        bankAccounts,
+        eWallets,
         currentYear: new Date().getFullYear(),
-        // Tambahkan jika ada logo perusahaan
         companyLogo: process.env.COMPANY_LOGO_URL || null,
-        // Tambahkan jika ada social media
         socialLinks: [
           { name: "Website", url: process.env.COMPANY_WEBSITE || "#" },
           { name: "LinkedIn", url: process.env.COMPANY_LINKEDIN || "#" },
@@ -540,12 +479,12 @@ export const sendReminderWithPdf = async (
       });
     }
 
-    // Buat subject sesuai status invoice
+    // Create subject based on invoice status
     const subject = isOverdue
-      ? `INVOICE JATUH TEMPO: #${invoiceNumber} dari ${businessName}`
-      : `Pengingat Pembayaran: Invoice #${invoiceNumber} dari ${businessName}`;
+      ? `OVERDUE INVOICE: #${invoiceNumber} from ${businessName}`
+      : `Payment Reminder: Invoice #${invoiceNumber} from ${businessName}`;
 
-    // Kirim email dengan attachment PDF
+    // Send email with PDF attachment
     const info = await transporter.sendMail({
       from: `"${businessName}" <${MAIL_FROM}>`,
       to: email,
@@ -568,85 +507,34 @@ export const sendReminderWithPdf = async (
   }
 };
 
-// export const sendInvoiceNotification = async (
-//   email: string,
-//   invoiceNumber: string,
-//   businessName: string,
-//   amount: string,
-//   dueDate: string,
-//   invoiceLink: string
-// ): Promise<boolean> => {
-//   try {
-//     if (process.env.SKIP_EMAIL_SENDING === "true") {
-//       console.log("==== EMAIL SENDING SKIPPED (Development Mode) ====");
-//       console.log(`Recipient: ${email}`);
-//       console.log(
-//         `Invoice Notification: ${invoiceNumber} from ${businessName}`
-//       );
-//       console.log(`Amount: ${amount}, Due Date: ${dueDate}`);
-//       console.log(`Invoice Link: ${BASE_URL_FE}/invoices/${invoiceLink}`);
-//       return true;
-//     }
-
-//     const templatePath = path.join(__dirname, "../templates", "invoice.hbs");
-
-//     if (!fs.existsSync(templatePath)) {
-//       console.error(`Template file not found: ${templatePath}`);
-//       const html = `
-//         <h1>New Invoice</h1>
-//         <p>You have received a new invoice from ${businessName}.</p>
-//         <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-//         <p><strong>Amount Due:</strong> ${amount}</p>
-//         <p><strong>Due Date:</strong> ${dueDate}</p>
-//         <p>Please click the link below to view and pay your invoice:</p>
-//         <p><a href="${BASE_URL_FE}/invoices/${invoiceLink}">View Invoice</a></p>
-//       `;
-
-//       await transporter.sendMail({
-//         from: MAIL_FROM,
-//         to: email,
-//         subject: `Invoice #${invoiceNumber} from ${businessName}`,
-//         html,
-//       });
-
-//       return true;
-//     }
-
-//     const templateSource = fs.readFileSync(templatePath, "utf-8");
-//     const compiledTemplate = handlebars.compile(templateSource);
-//     const html = compiledTemplate({
-//       businessName,
-//       invoiceNumber,
-//       amount,
-//       dueDate,
-//       link: `${BASE_URL_FE}/invoices/${invoiceLink}`,
-//     });
-
-//     const info = await transporter.sendMail({
-//       from: MAIL_FROM,
-//       to: email,
-//       subject: `Invoice #${invoiceNumber} from ${businessName}`,
-//       html,
-//     });
-
-//     console.log(
-//       "Invoice notification email sent successfully:",
-//       info.messageId
-//     );
-//     return true;
-//   } catch (error) {
-//     console.error("Error sending invoice notification email:", error);
-//     return false;
-//   }
-// };
-
 export const sendPaymentConfirmation = async (
   email: string,
   invoiceNumber: string,
   businessName: string,
   amount: string,
   paymentDate: string,
-  paymentMethod: string
+  paymentMethod: string,
+  paymentStatus: string = "PAID",
+  clientName: string = "Customer",
+  businessEmail: string = "",
+  businessPhone: string = "",
+  businessAddress: string = "",
+  isPartial: boolean = false,
+  remainingBalance?: string,
+  pdfBuffer?: Buffer,
+  paymentLink?: string | null,
+  bankAccounts?: Array<{
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null,
+  eWallets?: Array<{
+    wallet_type: string;
+    phone_number: string;
+    account_name: string;
+    is_primary: boolean;
+  }> | null
 ): Promise<boolean> => {
   try {
     if (process.env.SKIP_EMAIL_SENDING === "true") {
@@ -654,51 +542,90 @@ export const sendPaymentConfirmation = async (
       console.log(`Recipient: ${email}`);
       console.log(`Payment Confirmation: ${invoiceNumber} to ${businessName}`);
       console.log(
-        `Amount: ${amount}, Payment Date: ${paymentDate}, Method: ${paymentMethod}`
+        `Amount: ${amount}, Payment Date: ${paymentDate}, Method: ${paymentMethod}, Status: ${paymentStatus}`
       );
+      console.log(
+        `Is Partial: ${isPartial}, Remaining: ${remainingBalance || "None"}`
+      );
+      console.log(`PDF attachment included: ${pdfBuffer ? "Yes" : "No"}`);
       return true;
     }
 
     const templatePath = path.join(__dirname, "../templates", "payment.hbs");
 
+    // Check if template exists
+    let html = "";
     if (!fs.existsSync(templatePath)) {
       console.error(`Template file not found: ${templatePath}`);
-      const html = `
+      // Use hardcoded template if file not found
+      html = `
         <h1>Payment Confirmation</h1>
-        <p>Your payment to ${businessName} has been received.</p>
-        <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-        <p><strong>Amount Paid:</strong> ${amount}</p>
+        <p>Your payment of ${amount} for invoice #${invoiceNumber} has been received.</p>
         <p><strong>Payment Date:</strong> ${paymentDate}</p>
         <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+        <p><strong>Status:</strong> ${paymentStatus}</p>
+        ${
+          isPartial
+            ? `<p><strong>Remaining Balance:</strong> ${remainingBalance}</p>`
+            : ""
+        }
         <p>Thank you for your business!</p>
       `;
+    } else {
+      // Use template file if exists
+      const templateSource = fs.readFileSync(templatePath, "utf-8");
+      const compiledTemplate = handlebars.compile(templateSource);
 
-      await transporter.sendMail({
-        from: MAIL_FROM,
-        to: email,
-        subject: `Payment Confirmation for Invoice #${invoiceNumber}`,
-        html,
+      html = compiledTemplate({
+        businessName,
+        invoiceNumber,
+        amount,
+        paymentDate,
+        paymentMethod,
+        paymentStatus,
+        clientName,
+        businessEmail,
+        businessPhone,
+        businessAddress,
+        isPartial,
+        remainingBalance,
+        paymentLink,
+        bankAccounts: isPartial ? bankAccounts : null, // Only show payment methods if partial
+        eWallets: isPartial ? eWallets : null, // Only show payment methods if partial
+        currentYear: new Date().getFullYear(),
+        companyLogo: process.env.COMPANY_LOGO_URL || null,
+        socialLinks: [
+          { name: "Website", url: process.env.COMPANY_WEBSITE || "#" },
+          { name: "LinkedIn", url: process.env.COMPANY_LINKEDIN || "#" },
+        ],
       });
-
-      return true;
     }
 
-    const templateSource = fs.readFileSync(templatePath, "utf-8");
-    const compiledTemplate = handlebars.compile(templateSource);
-    const html = compiledTemplate({
-      businessName,
-      invoiceNumber,
-      amount,
-      paymentDate,
-      paymentMethod,
-    });
+    // Set subject based on payment status
+    const subject = isPartial
+      ? `Partial Payment Received: Invoice #${invoiceNumber}`
+      : `Payment Confirmation: Invoice #${invoiceNumber}`;
 
-    const info = await transporter.sendMail({
-      from: MAIL_FROM,
+    // Prepare email options with conditional attachment
+    const mailOptions: any = {
+      from: `"${businessName}" <${MAIL_FROM}>`,
       to: email,
-      subject: `Payment Confirmation for Invoice #${invoiceNumber}`,
+      subject,
       html,
-    });
+    };
+
+    // Add PDF attachment if available
+    if (pdfBuffer) {
+      mailOptions.attachments = [
+        {
+          filename: `Invoice-${invoiceNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     console.log(
       "Payment confirmation email sent successfully:",

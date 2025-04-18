@@ -18,63 +18,51 @@ export class RecurringInvoiceRouter {
   }
 
   private initializeRoutes() {
-    // Apply authentication middleware to all routes
+    // Apply authentication middleware to all routes once
     this.router.use(this.authMiddleware.verifyToken);
 
-    // Recurring Invoice routes
-    this.router.get(
-      "/",
-      this.authMiddleware.verifyToken,
-      this.recurringInvoiceController.getRecurringInvoices
-    );
+    // Recurring Invoice routes - removed duplicate verifyToken checks
+    this.router.get("/", this.recurringInvoiceController.getRecurringInvoices);
 
     this.router.get(
       "/:id",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.getRecurringInvoice
     );
 
     this.router.post(
       "/",
-      this.authMiddleware.verifyToken,
       this.validation.validateCreateRecurringInvoice,
       this.recurringInvoiceController.createRecurringInvoice
     );
 
     this.router.put(
       "/:id",
-      this.authMiddleware.verifyToken,
       this.validation.validateUpdateRecurringInvoice,
       this.recurringInvoiceController.updateRecurringInvoice
     );
 
     this.router.delete(
       "/:id",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.deleteRecurringInvoice
     );
 
     this.router.patch(
       "/:id/activate",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.activateRecurringInvoice
     );
 
     this.router.patch(
       "/:id/deactivate",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.deactivateRecurringInvoice
     );
 
     this.router.get(
       "/:id/invoices",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.getGeneratedInvoices
     );
 
     this.router.post(
       "/:id/generate",
-      this.authMiddleware.verifyToken,
       this.recurringInvoiceController.generateInvoiceManually
     );
   }

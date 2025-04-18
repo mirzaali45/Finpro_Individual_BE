@@ -48,7 +48,6 @@ export class Validation {
     };
   }
 
-  // Validate create invoice request
   get validateCreateInvoice(): RequestHandler {
     const validations = [
       body("client_id").isInt().withMessage("Client ID must be an integer"),
@@ -57,7 +56,18 @@ export class Validation {
         .isISO8601()
         .withMessage("Issue date must be a valid date"),
 
-      body("due_date").isISO8601().withMessage("Due date must be a valid date"),
+      body("due_date")
+        .isISO8601()
+        .withMessage("Due date must be a valid date")
+        .custom((value, { req }) => {
+          // Custom validation to ensure due date is after issue date
+          const issueDate = new Date(req.body.issue_date);
+          const dueDate = new Date(value);
+          if (dueDate <= issueDate) {
+            throw new Error("Due date must be after issue date");
+          }
+          return true;
+        }),
 
       body("items")
         .isArray({ min: 1 })
@@ -71,6 +81,11 @@ export class Validation {
         .isInt({ min: 1 })
         .withMessage("Quantity must be a positive integer"),
 
+      body("discount_amount")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Discount amount must be a positive number"),
+
       body("is_recurring")
         .optional()
         .isBoolean()
@@ -78,14 +93,20 @@ export class Validation {
 
       body("recurring_pattern")
         .optional()
-        .isIn(Object.values(RecurringPattern))
-        .withMessage("Invalid recurring pattern"),
+        .custom((value, { req }) => {
+          // Only validate if is_recurring is true
+          if (req.body.is_recurring) {
+            if (!Object.values(RecurringPattern).includes(value)) {
+              throw new Error("Invalid recurring pattern");
+            }
+          }
+          return true;
+        }),
     ];
 
     return this.runValidation(validations);
   }
 
-  // Validate update invoice request
   get validateUpdateInvoice(): RequestHandler {
     const validations = [
       body("client_id")
@@ -101,7 +122,18 @@ export class Validation {
       body("due_date")
         .optional()
         .isISO8601()
-        .withMessage("Due date must be a valid date"),
+        .withMessage("Due date must be a valid date")
+        .custom((value, { req }) => {
+          // Only validate if both dates are provided
+          if (req.body.issue_date && value) {
+            const issueDate = new Date(req.body.issue_date);
+            const dueDate = new Date(value);
+            if (dueDate <= issueDate) {
+              throw new Error("Due date must be after issue date");
+            }
+          }
+          return true;
+        }),
 
       body("items").optional().isArray().withMessage("Items must be an array"),
 
@@ -115,6 +147,11 @@ export class Validation {
         .isInt({ min: 1 })
         .withMessage("Quantity must be a positive integer"),
 
+      body("discount_amount")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Discount amount must be a positive number"),
+
       body("is_recurring")
         .optional()
         .isBoolean()
@@ -122,8 +159,15 @@ export class Validation {
 
       body("recurring_pattern")
         .optional()
-        .isIn(Object.values(RecurringPattern))
-        .withMessage("Invalid recurring pattern"),
+        .custom((value, { req }) => {
+          // Only validate if is_recurring is true
+          if (req.body.is_recurring) {
+            if (!Object.values(RecurringPattern).includes(value)) {
+              throw new Error("Invalid recurring pattern");
+            }
+          }
+          return true;
+        }),
     ];
 
     return this.runValidation(validations);

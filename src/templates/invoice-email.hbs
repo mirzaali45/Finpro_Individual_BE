@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice dari {{businessName}}</title>
+  <title>Invoice from {{businessName}}</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -66,6 +66,33 @@
       font-weight: 700;
       color: #2980b9;
     }
+    .payment-info {
+      background-color: #f0f7fb;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-left: 5px solid #3498db;
+    }
+    .payment-method {
+      margin-bottom: 10px;
+    }
+    .payment-method h4 {
+      margin-bottom: 5px;
+      color: #2c3e50;
+    }
+    .payment-method ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .payment-method .primary {
+      color: #27ae60;
+      font-weight: 600;
+    }
+    .payment-note {
+      font-style: italic;
+      margin-top: 10px;
+      color: #7f8c8d;
+    }
     .btn {
       display: inline-block;
       background-color: #3498db;
@@ -115,49 +142,86 @@
       {{#if companyLogo}}
       <img src="{{companyLogo}}" alt="{{businessName}}" class="logo">
       {{/if}}
-      <h1 class="title">Invoice dari {{businessName}}</h1>
-      <p class="subtitle">Terima kasih atas kerjasamanya!</p>
+      <h1 class="title">Invoice from {{businessName}}</h1>
+      <p class="subtitle">Thank you for your business!</p>
     </div>
     
     <div class="content">
-      <p>Halo {{clientName}},</p>
+      <p>Hello {{clientName}},</p>
       
-      <p>Kami telah melampirkan invoice untuk layanan/produk yang telah kami sediakan. Detail invoice dapat dilihat di bawah ini:</p>
+      <p>We have attached an invoice for the products/services provided. You can find the invoice details below:</p>
       
       <div class="invoice-details">
         <table>
           <tr>
-            <td>Nomor Invoice:</td>
+            <td>Invoice Number:</td>
             <td>{{invoiceNumber}}</td>
           </tr>
           <tr>
-            <td>Tanggal Invoice:</td>
+            <td>Invoice Date:</td>
             <td>{{issueDate}}</td>
           </tr>
           <tr>
-            <td>Jatuh Tempo:</td>
+            <td>Due Date:</td>
             <td>{{dueDate}}</td>
           </tr>
           <tr>
-            <td>Total Pembayaran:</td>
+            <td>Total Amount:</td>
             <td class="amount">{{amount}}</td>
           </tr>
         </table>
       </div>
       
-      <p>Invoice lengkap telah kami lampirkan sebagai file PDF dalam email ini. Silahkan periksa lampiran untuk melihat rincian lengkap invoice.</p>
+      {{#if bankAccounts}}
+      <div class="payment-info">
+        <h3 style="margin-top: 0; color: #2c3e50;">Payment Information</h3>
+        <p>Please make your payment using one of the following methods:</p>
+        
+        {{#if bankAccounts}}
+        <div class="payment-method">
+          <h4>Bank Accounts:</h4>
+          <ul>
+            {{#each bankAccounts}}
+            <li>
+              <strong>{{this.bank_name}}:</strong> {{this.account_number}} ({{this.account_name}})
+              {{#if this.is_primary}}<span class="primary"> (Recommended)</span>{{/if}}
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+        {{/if}}
+        
+        {{#if eWallets}}
+        <div class="payment-method">
+          <h4>E-Wallets:</h4>
+          <ul>
+            {{#each eWallets}}
+            <li>
+              <strong>{{this.wallet_type}}:</strong> {{this.phone_number}} ({{this.account_name}})
+              {{#if this.is_primary}}<span class="primary"> (Recommended)</span>{{/if}}
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+        {{/if}}
+        
+        <p class="payment-note">Please include the invoice number {{invoiceNumber}} when making payment to help us verify your transaction. and if already please send proof of payment via email or phone number</p>
+      </div>
+      {{/if}}
       
-      <p>Jika Anda memiliki pertanyaan tentang invoice ini, jangan ragu untuk menghubungi kami.</p>
+      <p>The complete invoice has been attached as a PDF file to this email. Please check the attachment for a detailed breakdown of the invoice.</p>
+      
+      <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
       
       <div class="btn-container">
         {{#if paymentLink}}
-        <a href="{{paymentLink}}" class="btn">Bayar Sekarang</a>
+        <a href="{{paymentLink}}" class="btn">Pay Now</a>
         {{/if}}
       </div>
     </div>
     
     <div class="footer">
-      <p>&copy; {{currentYear}} {{businessName}}. Seluruh hak cipta dilindungi.</p>
+      <p>&copy; {{currentYear}} {{businessName}}. All rights reserved.</p>
       
       <div class="contact">
         {{#if businessPhone}}<span>Tel: {{businessPhone}}</span> | {{/if}}

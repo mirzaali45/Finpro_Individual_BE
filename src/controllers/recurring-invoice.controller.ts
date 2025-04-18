@@ -11,6 +11,38 @@ import { generateInvoiceNumber } from "../utils/invoice.utils";
 const prisma = new PrismaClient();
 
 export class RecurringInvoiceController {
+  // Helper method for error handling
+  private handleError(res: Response, error: any, message: string): void {
+    console.error(`Error ${message}:`, error);
+
+    // Check if it's a validation error from Prisma
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      res.status(400).json({
+        message: "Validation error",
+        error: error.message,
+      });
+      return;
+    }
+
+    // Check if it's a unique constraint error
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      res.status(409).json({
+        message: "Conflict error",
+        error: `A unique constraint was violated: ${error.meta?.target}`,
+      });
+      return;
+    }
+
+    // Default error handling
+    res.status(500).json({
+      message: `Failed to ${message}`,
+      error: error.message || "Unknown error occurred",
+    });
+  }
+
   // Get all recurring invoices
   getRecurringInvoices = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -50,11 +82,7 @@ export class RecurringInvoiceController {
 
       res.status(200).json({ recurringInvoices });
     } catch (error: any) {
-      console.error("Error fetching recurring invoices:", error);
-      res.status(500).json({
-        message: "Failed to fetch recurring invoices",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch recurring invoices");
     }
   };
 
@@ -101,11 +129,7 @@ export class RecurringInvoiceController {
 
       res.status(200).json({ recurringInvoice });
     } catch (error: any) {
-      console.error("Error fetching recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to fetch recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch recurring invoice");
     }
   };
 
@@ -231,11 +255,7 @@ export class RecurringInvoiceController {
         recurringInvoice,
       });
     } catch (error: any) {
-      console.error("Error creating recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to create recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "create recurring invoice");
     }
   };
 
@@ -356,11 +376,7 @@ export class RecurringInvoiceController {
         recurringInvoice: updatedRecurringInvoice,
       });
     } catch (error: any) {
-      console.error("Error updating recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to update recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "update recurring invoice");
     }
   };
 
@@ -370,7 +386,7 @@ export class RecurringInvoiceController {
     res: Response
   ): Promise<void> => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.user_id; // Changed from req.user?.id to req.user?.user_id
 
       if (!userId) {
         res.status(401).json({ message: "User not authenticated" });
@@ -378,6 +394,16 @@ export class RecurringInvoiceController {
       }
 
       const recurringId = parseInt(req.params.id);
+      const { confirmed } = req.body;
+
+      // Check if the confirmation flag is provided
+      if (!confirmed) {
+        res.status(400).json({
+          message: "Please confirm the deletion of this recurring invoice",
+          requireConfirmation: true,
+        });
+        return;
+      }
 
       // Check if recurring invoice exists and belongs to the user
       const recurringInvoice = await prisma.recurringInvoice.findFirst({
@@ -408,11 +434,7 @@ export class RecurringInvoiceController {
         message: "Recurring invoice deleted successfully",
       });
     } catch (error: any) {
-      console.error("Error deleting recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to delete recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "delete recurring invoice");
     }
   };
 
@@ -468,11 +490,7 @@ export class RecurringInvoiceController {
         recurringInvoice: updatedRecurringInvoice,
       });
     } catch (error: any) {
-      console.error("Error activating recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to activate recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "activate recurring invoice");
     }
   };
 
@@ -528,11 +546,7 @@ export class RecurringInvoiceController {
         recurringInvoice: updatedRecurringInvoice,
       });
     } catch (error: any) {
-      console.error("Error deactivating recurring invoice:", error);
-      res.status(500).json({
-        message: "Failed to deactivate recurring invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "deactivate recurring invoice");
     }
   };
 
@@ -584,11 +598,7 @@ export class RecurringInvoiceController {
 
       res.status(200).json({ invoices });
     } catch (error: any) {
-      console.error("Error fetching generated invoices:", error);
-      res.status(500).json({
-        message: "Failed to fetch generated invoices",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch generated invoices");
     }
   };
 
@@ -666,6 +676,8 @@ export class RecurringInvoiceController {
         // Calculate subtotal, tax amount, and total amount
         let subtotal = 0;
         let tax_amount = 0;
+        // Default discount is null (no discount)
+        const discount_amount = null;
 
         // Create the invoice
         const newInvoice = await prismaClient.invoice.create({
@@ -678,6 +690,7 @@ export class RecurringInvoiceController {
             status: "PENDING" as InvoiceStatus,
             subtotal: 0, // Will update this later
             tax_amount: 0, // Will update this later
+            discount_amount: discount_amount, // Set discount amount
             total_amount: 0, // Will update this later
             source_recurring_id: recurringId,
           },
@@ -715,8 +728,8 @@ export class RecurringInvoiceController {
           });
         }
 
-        // Calculate the total amount
-        const total_amount = subtotal + tax_amount;
+        // Calculate the total amount (considering any discount)
+        const total_amount = subtotal + tax_amount - (discount_amount || 0);
 
         // Update the invoice with calculated totals
         const updatedInvoice = await prismaClient.invoice.update({
@@ -761,11 +774,7 @@ export class RecurringInvoiceController {
         invoice,
       });
     } catch (error: any) {
-      console.error("Error generating invoice:", error);
-      res.status(500).json({
-        message: "Failed to generate invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "generate invoice");
     }
   };
 }

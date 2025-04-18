@@ -19,67 +19,70 @@ export class InvoiceRouter {
 
   private initializeRoutes() {
     // Apply authentication middleware to all routes once
-    this.router.use(this.authMiddleware.verifyToken as unknown as RequestHandler);
+    this.router.use(
+      this.authMiddleware.verifyToken as unknown as RequestHandler
+    );
 
     // Invoice routes - removed duplicate verifyToken checks
     this.router.get(
       "/",
-      this.invoiceController.getInvoices
+      this.invoiceController.getInvoices.bind(this.invoiceController)
     );
 
     this.router.get(
       "/:id",
-      this.invoiceController.getInvoice
+      this.invoiceController.getInvoice.bind(this.invoiceController)
     );
 
     this.router.post(
       "/",
       this.validation.validateCreateInvoice,
-      this.invoiceController.createInvoice
+      this.invoiceController.createInvoice.bind(this.invoiceController)
     );
 
     this.router.put(
       "/:id",
       this.validation.validateUpdateInvoice,
-      this.invoiceController.updateInvoice
+      this.invoiceController.updateInvoice.bind(this.invoiceController)
     );
 
     this.router.delete(
       "/:id",
-      this.invoiceController.deleteInvoice
+      this.invoiceController.deleteInvoice.bind(this.invoiceController)
     );
 
     this.router.patch(
       "/:id/status",
-      this.invoiceController.changeStatus
+      this.invoiceController.changeStatus.bind(this.invoiceController)
     );
+
     this.router.get(
       "/:id/payments",
-      this.invoiceController.getInvoicePayments
+      this.invoiceController.getInvoicePayments.bind(this.invoiceController)
     );
 
     // Payment routes
     this.router.post(
       "/payments",
       this.validation.validateCreatePayment,
-      this.invoiceController.addPayment
+      this.invoiceController.addPayment.bind(this.invoiceController)
     );
 
     // Product usage in invoices endpoint
     this.router.get(
       "/product-usage/:productId",
-      this.invoiceController.getProductUsage
+      this.invoiceController.getProductUsage.bind(this.invoiceController)
     );
 
-    // Tambahkan ke initializeRoutes() di InvoiceRouter
+    // Email routes
     this.router.post(
       "/:id/send",
-      this.invoiceController.sendInvoiceEmail
+      this.invoiceController.sendInvoiceEmail.bind(this.invoiceController)
     );
 
     this.router.post(
       "/:id/remind",
-      this.invoiceController.sendReminderEmail
+      this.invoiceController.sendReminderEmail.bind(this.invoiceController)
     );
   }
 

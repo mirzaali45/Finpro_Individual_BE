@@ -8,12 +8,48 @@ import {
 } from "../../prisma/generated/client";
 import { calculateNextInvoiceDate } from "../utils/dateUtils";
 import { ProductService } from "../services/ProductService";
-import { sendInvoiceWithPdf, sendReminderWithPdf } from "../services/mailer";
+import {
+  sendInvoiceWithPdf,
+  sendPaymentConfirmation,
+  sendReminderWithPdf,
+} from "../services/mailer";
 import { generateInvoicePdf, InvoiceForPDF } from "../services/PdfGeneator";
 
 const prisma = new PrismaClient();
 
 export class InvoiceController {
+  // Helper method for error handling
+  private handleError(res: Response, error: any, message: string): void {
+    console.error(`Error ${message}:`, error);
+
+    // Check if it's a validation error from Prisma
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      res.status(400).json({
+        message: "Validation error",
+        error: error.message,
+      });
+      return;
+    }
+
+    // Check if it's a unique constraint error (e.g., duplicate invoice number)
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      res.status(409).json({
+        message: "Conflict error",
+        error: `A unique constraint was violated: ${error.meta?.target}`,
+      });
+      return;
+    }
+
+    // Default error handling
+    res.status(500).json({
+      message: `Failed to ${message}`,
+      error: error.message || "Unknown error occurred",
+    });
+  }
+
   // Get all invoices
   async getInvoices(req: Request, res: Response): Promise<void> {
     try {
@@ -45,11 +81,7 @@ export class InvoiceController {
 
       res.status(200).json({ invoices });
     } catch (error: any) {
-      console.error("Error fetching invoices:", error);
-      res.status(500).json({
-        message: "Failed to fetch invoices",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch invoices");
     }
   }
 
@@ -90,13 +122,10 @@ export class InvoiceController {
 
       res.status(200).json({ invoice });
     } catch (error: any) {
-      console.error("Error fetching invoice:", error);
-      res.status(500).json({
-        message: "Failed to fetch invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch invoice");
     }
   }
+
   async createInvoice(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.user_id;
@@ -113,6 +142,7 @@ export class InvoiceController {
         items,
         notes,
         terms,
+        discount_amount, // Add support for discount
         is_recurring,
         recurring_pattern,
       } = req.body;
@@ -129,6 +159,7 @@ export class InvoiceController {
       // Calculate invoice subtotal, tax amount, and total
       let subtotal = 0;
       let tax_amount = 0;
+      const discountValue = discount_amount ? parseFloat(discount_amount) : 0;
 
       // Generate a unique invoice number including the client ID
       const invoiceNumber = await generateInvoiceNumber(userId, clientId);
@@ -146,13 +177,13 @@ export class InvoiceController {
             status: "DRAFT" as InvoiceStatus,
             subtotal: 0, // Will update this later
             tax_amount: 0, // Will update this later
+            discount_amount: discountValue || null, // Add support for discount
             total_amount: 0, // Will update this later
             notes,
             terms,
           },
         });
 
-        // Rest of the method remains the same...
         // Create the invoice items and calculate totals
         const invoiceItems = [];
 
@@ -206,8 +237,8 @@ export class InvoiceController {
           invoiceItems.push(invoiceItem);
         }
 
-        // Calculate the total amount
-        const total_amount = subtotal + tax_amount;
+        // Calculate the total amount with discount
+        const total_amount = subtotal + tax_amount - (discountValue || 0);
 
         // Update the invoice with calculated totals
         const updatedInvoice = await prismaClient.invoice.update({
@@ -217,6 +248,7 @@ export class InvoiceController {
           data: {
             subtotal,
             tax_amount,
+            discount_amount: discountValue || null,
             total_amount,
           },
           include: {
@@ -296,11 +328,7 @@ export class InvoiceController {
         invoice,
       });
     } catch (error: any) {
-      console.error("Error creating invoice:", error);
-      res.status(500).json({
-        message: "Failed to create invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "create invoice");
     }
   }
 
@@ -322,6 +350,7 @@ export class InvoiceController {
         items,
         notes,
         terms,
+        discount_amount, // Add support for discount
         is_recurring,
         recurring_pattern,
       } = req.body;
@@ -352,6 +381,7 @@ export class InvoiceController {
       // Calculate invoice subtotal, tax amount, and total
       let subtotal = 0;
       let tax_amount = 0;
+      const discountValue = discount_amount ? parseFloat(discount_amount) : 0;
 
       // Start a transaction to ensure data consistency
       const updatedInvoice = await prisma.$transaction(async (prismaClient) => {
@@ -366,6 +396,7 @@ export class InvoiceController {
             due_date: new Date(due_date),
             notes,
             terms,
+            discount_amount: discountValue || null, // Add support for discount
           },
         });
 
@@ -425,8 +456,8 @@ export class InvoiceController {
           });
         }
 
-        // Calculate the total amount
-        const total_amount = subtotal + tax_amount;
+        // Calculate the total amount with discount
+        const total_amount = subtotal + tax_amount - (discountValue || 0);
 
         // Update the invoice with calculated totals
         const finalInvoice = await prismaClient.invoice.update({
@@ -436,6 +467,7 @@ export class InvoiceController {
           data: {
             subtotal,
             tax_amount,
+            discount_amount: discountValue || null,
             total_amount,
           },
           include: {
@@ -573,11 +605,7 @@ export class InvoiceController {
         invoice: updatedInvoice,
       });
     } catch (error: any) {
-      console.error("Error updating invoice:", error);
-      res.status(500).json({
-        message: "Failed to update invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "update invoice");
     }
   }
 
@@ -592,6 +620,16 @@ export class InvoiceController {
       }
 
       const invoiceId = parseInt(req.params.id);
+      const { confirmed } = req.body;
+
+      // Check if the confirmation flag is provided
+      if (!confirmed) {
+        res.status(400).json({
+          message: "Please confirm the deletion of this invoice",
+          requireConfirmation: true,
+        });
+        return;
+      }
 
       // Check if invoice exists and belongs to the user
       const invoice = await prisma.invoice.findFirst({
@@ -621,11 +659,7 @@ export class InvoiceController {
         message: "Invoice deleted successfully",
       });
     } catch (error: any) {
-      console.error("Error deleting invoice:", error);
-      res.status(500).json({
-        message: "Failed to delete invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "delete invoice");
     }
   }
 
@@ -686,11 +720,7 @@ export class InvoiceController {
         invoice: updatedInvoice,
       });
     } catch (error: any) {
-      console.error("Error changing invoice status:", error);
-      res.status(500).json({
-        message: "Failed to change invoice status",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "change invoice status");
     }
   }
 
@@ -732,11 +762,7 @@ export class InvoiceController {
 
       res.status(200).json({ payments });
     } catch (error: any) {
-      console.error("Error fetching invoice payments:", error);
-      res.status(500).json({
-        message: "Failed to fetch payments",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "fetch invoice payments");
     }
   }
 
@@ -768,7 +794,7 @@ export class InvoiceController {
         return;
       }
 
-      // Check if invoice exists and belongs to the user
+      // Check if invoice exists and belongs to the user with all required relations for PDF generation
       const invoice = await prisma.invoice.findFirst({
         where: {
           invoice_id: invoiceId,
@@ -776,7 +802,23 @@ export class InvoiceController {
           deleted_at: null,
         },
         include: {
+          client: true,
           payments: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: {
+            include: {
+              profile: {
+                include: {
+                  bank_accounts: true,
+                  e_wallets: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -803,15 +845,24 @@ export class InvoiceController {
         0
       );
 
+      // Get the actual invoice total (considering discount if any)
+      const invoiceTotal = parseFloat(invoice.total_amount.toString());
+
       // Update invoice status based on payment
       let newStatus = invoice.status;
+      let statusChanged = false;
+      let isPartial = false;
 
-      if (totalPaid >= parseFloat(invoice.total_amount.toString())) {
+      if (totalPaid >= invoiceTotal) {
         newStatus = "PAID" as InvoiceStatus;
+        statusChanged = true;
       } else if (totalPaid > 0) {
         newStatus = "PARTIAL" as InvoiceStatus;
+        statusChanged = true;
+        isPartial = true;
       }
 
+      // Update invoice status in the database if changed
       if (newStatus !== invoice.status) {
         await prisma.invoice.update({
           where: {
@@ -821,20 +872,128 @@ export class InvoiceController {
             status: newStatus,
           },
         });
+
+        // PENTING: Update status pada objek invoice di memori
+        // untuk memastikan PDF mencerminkan status terbaru
+        invoice.status = newStatus;
+      }
+
+      // Send payment confirmation email to client
+      if (invoice.client && invoice.client.email) {
+        try {
+          // Format amount with currency
+          const formattedAmount = new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }).format(parseFloat(amount));
+
+          // Format payment date
+          const formattedPaymentDate = new Date(
+            payment_date
+          ).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+
+          // Get business information
+          const businessName =
+            invoice.user?.profile?.company_name || "Your Business";
+          const businessEmail = invoice.user?.email || "";
+          const businessPhone = invoice.user?.phone || "";
+          const businessAddress = invoice.user?.profile?.address || "";
+
+          // Calculate remaining balance if partial payment
+          let remainingBalance;
+          if (isPartial) {
+            const remaining = invoiceTotal - totalPaid;
+            remainingBalance = new Intl.NumberFormat("id-ID", {
+              style: "currency",
+              currency: "IDR",
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            }).format(remaining);
+          }
+
+          // Create payment link if available
+          const paymentLink = process.env.PAYMENT_GATEWAY_URL
+            ? `${process.env.PAYMENT_GATEWAY_URL}/invoice/${invoiceId}`
+            : undefined;
+
+          // Get bank accounts and e-wallets for partial payments
+          const bankAccounts = isPartial
+            ? invoice.user?.profile?.bank_accounts || null
+            : null;
+          const eWallets = isPartial
+            ? invoice.user?.profile?.e_wallets || null
+            : null;
+
+          // Tambahkan pembayaran baru ke array payments
+          // Ini memastikan PDF melihat semua pembayaran termasuk yang baru ditambahkan
+          invoice.payments.push(payment);
+
+          // Generate PDF invoice for attachment with updated status
+          let pdfBuffer: Buffer | undefined;
+          try {
+            console.log(`Generating PDF with status: ${invoice.status}`);
+            pdfBuffer = await generateInvoicePdf(
+              invoice as unknown as InvoiceForPDF
+            );
+          } catch (pdfError) {
+            console.error(
+              "Failed to generate PDF for payment confirmation:",
+              pdfError
+            );
+            // Continue without PDF if generation fails
+          }
+
+          // Send payment confirmation email
+          await sendPaymentConfirmation(
+            invoice.client.email,
+            invoice.invoice_number,
+            businessName,
+            formattedAmount,
+            formattedPaymentDate,
+            payment_method,
+            newStatus,
+            invoice.client.name,
+            businessEmail,
+            businessPhone,
+            businessAddress,
+            isPartial,
+            remainingBalance,
+            pdfBuffer,
+            paymentLink,
+            bankAccounts,
+            eWallets
+          );
+
+          console.log(
+            `Payment confirmation email sent to ${invoice.client.email} for invoice ${invoice.invoice_number}`
+          );
+        } catch (emailError) {
+          console.error(
+            "Failed to send payment confirmation email:",
+            emailError
+          );
+          // Don't return an error to the client, just log it
+        }
       }
 
       res.status(201).json({
         message: "Payment added successfully",
         payment,
+        invoice_status: newStatus,
+        total_paid: totalPaid,
+        remaining_amount: Math.max(0, invoiceTotal - totalPaid),
       });
     } catch (error: any) {
-      console.error("Error adding payment:", error);
-      res.status(500).json({
-        message: "Failed to add payment",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "add payment");
     }
   }
+
   /**
    * Get product usage in invoices
    */
@@ -869,8 +1028,7 @@ export class InvoiceController {
       // Return in the format the frontend expects
       res.status(200).json(usage);
     } catch (error) {
-      console.error("Error fetching product usage:", error);
-      res.status(500).json({ message: "Failed to fetch product usage", error });
+      this.handleError(res, error, "fetch product usage");
     }
   }
 
@@ -884,7 +1042,7 @@ export class InvoiceController {
 
       const invoiceId = parseInt(req.params.id);
 
-      // Dapatkan data invoice lengkap dengan semua relasi yang diperlukan
+      // Get complete invoice data with all required relations
       const invoice = await prisma.invoice.findFirst({
         where: {
           invoice_id: invoiceId,
@@ -900,7 +1058,12 @@ export class InvoiceController {
           },
           user: {
             include: {
-              profile: true,
+              profile: {
+                include: {
+                  bank_accounts: true,
+                  e_wallets: true,
+                },
+              },
             },
           },
         },
@@ -916,15 +1079,19 @@ export class InvoiceController {
         return;
       }
 
-      // Dapatkan data profile untuk nama bisnis
+      // Get business profile data
       const businessName =
         invoice.user?.profile?.company_name || "Your Business";
       const businessEmail = invoice.user?.email || "";
       const businessPhone = invoice.user?.phone || "";
       const businessAddress = invoice.user?.profile?.address || "";
 
+      // Extract bank accounts and e-wallets
+      const bankAccounts = invoice.user?.profile?.bank_accounts || null;
+      const eWallets = invoice.user?.profile?.e_wallets || null;
+
       // Format due date
-      const dueDate = new Date(invoice.due_date).toLocaleDateString("id-ID", {
+      const dueDate = new Date(invoice.due_date).toLocaleDateString("en-US", {
         day: "numeric",
         month: "long",
         year: "numeric",
@@ -934,22 +1101,20 @@ export class InvoiceController {
       const amount = new Intl.NumberFormat("id-ID", {
         style: "currency",
         currency: "IDR",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(Number(invoice.total_amount));
 
       // Generate PDF invoice
-      // Di controller
-      // Di controller
       const pdfBuffer = await generateInvoicePdf(
         invoice as unknown as InvoiceForPDF
       );
 
       const paymentLink = process.env.PAYMENT_GATEWAY_URL
         ? `${process.env.PAYMENT_GATEWAY_URL}/invoice/${invoiceId}`
-        : undefined; // Gunakan undefined alih-alih null
+        : undefined;
 
-      // Kirim email dengan PDF terlampir
+      // Send email with PDF attachment
       const emailSent = await sendInvoiceWithPdf(
         invoice.client.email,
         invoice.invoice_number,
@@ -961,11 +1126,13 @@ export class InvoiceController {
         businessPhone,
         businessAddress,
         pdfBuffer,
-        paymentLink
+        paymentLink,
+        bankAccounts,
+        eWallets
       );
 
       if (emailSent) {
-        // Update status invoice menjadi SENT jika sebelumnya DRAFT
+        // Update invoice status to PENDING if it was DRAFT
         if (invoice.status === "DRAFT") {
           await prisma.invoice.update({
             where: { invoice_id: invoiceId },
@@ -974,22 +1141,18 @@ export class InvoiceController {
         }
 
         res.status(200).json({
-          message: "Invoice berhasil dikirim dengan lampiran PDF",
+          message: "Invoice successfully sent with PDF attachment",
           invoice_id: invoiceId,
           client_email: invoice.client.email,
         });
       } else {
-        res.status(500).json({ message: "Gagal mengirim email invoice" });
+        res.status(500).json({ message: "Failed to send invoice email" });
       }
     } catch (error: any) {
-      console.error("Error sending invoice email:", error);
-      res.status(500).json({
-        message: "Gagal mengirim email invoice",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "send invoice email");
     }
   };
-  
+
   sendReminderEmail = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user?.user_id;
@@ -1000,7 +1163,7 @@ export class InvoiceController {
 
       const invoiceId = parseInt(req.params.id);
 
-      // Dapatkan data invoice lengkap dengan semua relasi yang diperlukan
+      // Get complete invoice data with all required relations
       const invoice = await prisma.invoice.findFirst({
         where: {
           invoice_id: invoiceId,
@@ -1016,7 +1179,12 @@ export class InvoiceController {
           },
           user: {
             include: {
-              profile: true,
+              profile: {
+                include: {
+                  bank_accounts: true,
+                  e_wallets: true,
+                },
+              },
             },
           },
         },
@@ -1032,20 +1200,23 @@ export class InvoiceController {
         return;
       }
 
-      // Dapatkan data profile untuk nama bisnis
+      // Get business profile data
       const businessName =
         invoice.user?.profile?.company_name || "Your Business";
       const businessEmail = invoice.user?.email || "";
       const businessPhone = invoice.user?.phone || "";
       const businessAddress = invoice.user?.profile?.address || "";
 
+      // Extract bank accounts and e-wallets
+      const bankAccounts = invoice.user?.profile?.bank_accounts || null;
+      const eWallets = invoice.user?.profile?.e_wallets || null;
+
       // Format due date
-      const dueDate = new Date(invoice.due_date).toLocaleDateString("id-ID", {
+      const dueDate = new Date(invoice.due_date).toLocaleDateString("en-US", {
         day: "numeric",
         month: "long",
         year: "numeric",
       });
-
       // Format amount
       const amount = new Intl.NumberFormat("id-ID", {
         style: "currency",
@@ -1054,23 +1225,23 @@ export class InvoiceController {
         maximumFractionDigits: 0,
       }).format(Number(invoice.total_amount));
 
-      // Periksa apakah invoice sudah jatuh tempo
+      // Check if invoice is overdue
       const isOverdue = new Date(invoice.due_date) < new Date();
       const reminderSubject = isOverdue
-        ? `REMINDER: Invoice #${invoice.invoice_number} Jatuh Tempo`
-        : `Pengingat Pembayaran Invoice #${invoice.invoice_number}`;
+        ? `OVERDUE INVOICE: #${invoice.invoice_number}`
+        : `Payment Reminder: Invoice #${invoice.invoice_number}`;
 
       // Generate PDF invoice
       const pdfBuffer = await generateInvoicePdf(
         invoice as unknown as InvoiceForPDF
       );
 
-      // Opsional: Buat payment link jika ada
+      // Optional: Create payment link if available
       const paymentLink = process.env.PAYMENT_GATEWAY_URL
         ? `${process.env.PAYMENT_GATEWAY_URL}/invoice/${invoiceId}`
         : undefined;
 
-      // Kirim email dengan PDF terlampir
+      // Send email with PDF attachment
       const emailSent = await sendReminderWithPdf(
         invoice.client.email,
         invoice.invoice_number,
@@ -1083,25 +1254,23 @@ export class InvoiceController {
         businessAddress,
         pdfBuffer,
         isOverdue,
-        paymentLink
+        paymentLink,
+        bankAccounts,
+        eWallets
       );
 
       if (emailSent) {
         res.status(200).json({
-          message: "Reminder email berhasil dikirim dengan lampiran PDF",
+          message: "Reminder email successfully sent with PDF attachment",
           invoice_id: invoiceId,
           client_email: invoice.client.email,
           is_overdue: isOverdue,
         });
       } else {
-        res.status(500).json({ message: "Gagal mengirim email reminder" });
+        res.status(500).json({ message: "Failed to send reminder email" });
       }
     } catch (error: any) {
-      console.error("Error sending reminder email:", error);
-      res.status(500).json({
-        message: "Gagal mengirim email reminder",
-        error: error.message || "Unknown error occurred",
-      });
+      this.handleError(res, error, "send reminder email");
     }
   };
 }
