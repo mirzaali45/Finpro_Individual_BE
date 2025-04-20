@@ -1,10 +1,4 @@
 "use strict";
-// import express from "express";
-// import cookieParser from "cookie-parser";
-// import cors from "cors";
-// import { AuthRouter } from "./routers/user.router";
-// import { InvoiceRouter } from "./routers/invoice.router";
-// // import { AuthRouter } from "./routers/auth.router";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -18,30 +12,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// const PORT: number = 8000;
-// const base_url_fe = process.env.BASE_URL_FE;
-// const app = express();
-// app.use(express.json());
-// app.use(cookieParser());
-// app.use(
-//   cors({
-//     origin: base_url_fe,
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//   })
-// );
-// const authRouter = new AuthRouter();
-// const invoiceRouter = new InvoiceRouter
-// app.use("/api/auth", authRouter.getRouter());
-// app.use("/api/invoices", invoiceRouter.getRouter() );
-// app.get("/api", (req, res) => {
-//   res.send("Welcome to the API!");
-// });
-// app.listen(PORT, () => {
-//   console.log(`Server is running on -> http://localhost:${PORT}/api`);
-// });
-// export default app;
 const express_1 = __importDefault(require("express"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const cors_1 = __importDefault(require("cors"));
