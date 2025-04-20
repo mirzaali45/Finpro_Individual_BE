@@ -9,28 +9,48 @@ exports.getDateRange = getDateRange;
  * Calculate the next invoice date based on the current date and the recurring pattern
  */
 function calculateNextInvoiceDate(baseDate, pattern) {
+    console.log("Calculating next date from:", baseDate, "with pattern:", pattern);
+    // Pastikan baseDate adalah objek Date yang valid
     const nextDate = new Date(baseDate);
-    switch (pattern) {
-        case "WEEKLY":
-            nextDate.setDate(nextDate.getDate() + 7);
-            break;
-        case "BIWEEKLY":
-            nextDate.setDate(nextDate.getDate() + 14);
-            break;
-        case "MONTHLY":
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            break;
-        case "QUARTERLY":
-            nextDate.setMonth(nextDate.getMonth() + 3);
-            break;
-        case "SEMIANNUALLY":
-            nextDate.setMonth(nextDate.getMonth() + 6);
-            break;
-        case "ANNUALLY":
-            nextDate.setFullYear(nextDate.getFullYear() + 1);
-            break;
+    if (isNaN(nextDate.getTime())) {
+        console.error("Invalid date provided:", baseDate);
+        // Fallback ke tanggal sekarang jika invalid
+        return calculateNextInvoiceDate(new Date(), pattern);
     }
-    return nextDate;
+    try {
+        switch (pattern) {
+            case "WEEKLY":
+                nextDate.setDate(nextDate.getDate() + 7);
+                break;
+            case "BIWEEKLY":
+                nextDate.setDate(nextDate.getDate() + 14);
+                break;
+            case "MONTHLY":
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                break;
+            case "QUARTERLY":
+                nextDate.setMonth(nextDate.getMonth() + 3);
+                break;
+            case "SEMIANNUALLY":
+                nextDate.setMonth(nextDate.getMonth() + 6);
+                break;
+            case "ANNUALLY":
+                nextDate.setFullYear(nextDate.getFullYear() + 1);
+                break;
+            default:
+                console.error("Unknown pattern:", pattern);
+                // Default to monthly if pattern is unknown
+                nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        console.log("Next date calculated:", nextDate);
+        return nextDate;
+    }
+    catch (error) {
+        console.error("Error calculating next date:", error);
+        const fallback = new Date();
+        fallback.setMonth(fallback.getMonth() + 1);
+        return fallback;
+    }
 }
 /**
  * Format a date in a standardized way for display
