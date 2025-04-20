@@ -5,10 +5,10 @@ import handlebars from "handlebars";
 require("dotenv").config();
 
 // Tangani environment variables yang mungkin tidak ada
-const MAIL_USER = process.env.MAIL_USER || process.env.EMAIL_USER;
-const MAIL_PASS = process.env.MAIL_PASS || process.env.EMAIL_PASS;
+const MAIL_USER = process.env.EMAIL_USER;
+const MAIL_PASS = process.env.EMAIL_PASS;
 const MAIL_FROM = process.env.MAIL_FROM || MAIL_USER;
-const BASE_URL_FE = process.env.BASE_URL_FE || "http://localhost:3000";
+const BASE_URL_FE = process.env.BASE_URL_FE;
 
 // Tambahkan console log untuk debugging
 console.log("Email Configuration:");
