@@ -60,7 +60,7 @@ const base_url_fe = process.env.BASE_URL_FE || "http://localhost:3000";
 const allowedOrigins = [
   base_url_fe, // Keep your existing environment variable
   "https://invoicepro-five.vercel.app",
-  // "https://invoice-pro-ten.vercel.app",
+  "https://invoice-pro-ten.vercel.app",
   // Add any other domains that need access
 ];
 
