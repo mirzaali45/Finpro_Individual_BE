@@ -126,6 +126,211 @@ export class InvoiceController {
     }
   }
 
+  // async createInvoice(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const userId = req.user?.user_id;
+
+  //     if (!userId) {
+  //       res.status(401).json({ message: "User not authenticated" });
+  //       return;
+  //     }
+
+  //     const {
+  //       client_id,
+  //       issue_date,
+  //       due_date,
+  //       items,
+  //       notes,
+  //       terms,
+  //       discount_amount, // Add support for discount
+  //       is_recurring,
+  //       recurring_pattern,
+  //     } = req.body;
+
+  //     // Ensure client_id is converted to an integer
+  //     const clientId = parseInt(client_id, 10);
+
+  //     // Check if clientId is a valid number
+  //     if (isNaN(clientId)) {
+  //       res.status(400).json({ message: "Invalid client ID format" });
+  //       return;
+  //     }
+
+  //     // Calculate invoice subtotal, tax amount, and total
+  //     let subtotal = 0;
+  //     let tax_amount = 0;
+  //     const discountValue = discount_amount ? parseFloat(discount_amount) : 0;
+
+  //     // Generate a unique invoice number including the client ID
+  //     const invoiceNumber = await generateInvoiceNumber(userId, clientId);
+
+  //     // Start a transaction to ensure data consistency
+  //     const invoice = await prisma.$transaction(async (prismaClient) => {
+  //       // Create the invoice first
+  //       const newInvoice = await prismaClient.invoice.create({
+  //         data: {
+  //           user_id: userId,
+  //           client_id: clientId,
+  //           invoice_number: invoiceNumber,
+  //           issue_date: new Date(issue_date),
+  //           due_date: new Date(due_date),
+  //           status: "DRAFT" as InvoiceStatus,
+  //           subtotal: 0, // Will update this later
+  //           tax_amount: 0, // Will update this later
+  //           discount_amount: discountValue || null, // Add support for discount
+  //           total_amount: 0, // Will update this later
+  //           notes,
+  //           terms,
+  //         },
+  //       });
+
+  //       // Create the invoice items and calculate totals
+  //       const invoiceItems = [];
+
+  //       for (const item of items) {
+  //         // Ensure product_id is an integer
+  //         const productId = parseInt(item.product_id, 10);
+
+  //         if (isNaN(productId)) {
+  //           throw new Error(`Invalid product ID format: ${item.product_id}`);
+  //         }
+
+  //         const product = await prismaClient.product.findFirst({
+  //           where: {
+  //             product_id: productId,
+  //             user_id: userId,
+  //           },
+  //         });
+
+  //         if (!product) {
+  //           throw new Error(`Product with ID ${productId} not found`);
+  //         }
+
+  //         const quantity = item.quantity;
+  //         const unitPrice = parseFloat(product.price.toString());
+  //         const itemAmount = quantity * unitPrice;
+
+  //         let itemTaxAmount = 0;
+  //         if (product.tax_rate) {
+  //           const taxRate = parseFloat(product.tax_rate.toString());
+  //           itemTaxAmount = itemAmount * (taxRate / 100);
+  //         }
+
+  //         subtotal += itemAmount;
+  //         tax_amount += itemTaxAmount;
+
+  //         const invoiceItem = await prismaClient.invoiceItem.create({
+  //           data: {
+  //             invoice_id: newInvoice.invoice_id,
+  //             product_id: productId,
+  //             description: item.description || product.description,
+  //             quantity,
+  //             unit_price: unitPrice,
+  //             tax_rate: product.tax_rate
+  //               ? parseFloat(product.tax_rate.toString())
+  //               : null,
+  //             tax_amount: itemTaxAmount,
+  //             amount: itemAmount,
+  //           },
+  //         });
+
+  //         invoiceItems.push(invoiceItem);
+  //       }
+
+  //       // Calculate the total amount with discount
+  //       const total_amount = subtotal + tax_amount - (discountValue || 0);
+
+  //       // Update the invoice with calculated totals
+  //       const updatedInvoice = await prismaClient.invoice.update({
+  //         where: {
+  //           invoice_id: newInvoice.invoice_id,
+  //         },
+  //         data: {
+  //           subtotal,
+  //           tax_amount,
+  //           discount_amount: discountValue || null,
+  //           total_amount,
+  //         },
+  //         include: {
+  //           client: true,
+  //           items: {
+  //             include: {
+  //               product: true,
+  //             },
+  //           },
+  //         },
+  //       });
+
+  //       // Handle recurring invoice setup if needed
+  //       if (is_recurring && recurring_pattern) {
+  //         const nextInvoiceDate = calculateNextInvoiceDate(
+  //           new Date(due_date),
+  //           recurring_pattern as RecurringPattern
+  //         );
+
+  //         // Fixed the issue with async in map and the user_id type issue
+  //         const itemsToCreate = [];
+  //         for (const item of items) {
+  //           // Ensure product_id is an integer here too
+  //           const productId = parseInt(item.product_id, 10);
+
+  //           if (isNaN(productId)) {
+  //             throw new Error(`Invalid product ID format: ${item.product_id}`);
+  //           }
+
+  //           const product = await prismaClient.product.findUnique({
+  //             where: { product_id: productId },
+  //           });
+
+  //           if (product) {
+  //             itemsToCreate.push({
+  //               product_id: productId,
+  //               description: item.description,
+  //               quantity: item.quantity,
+  //               unit_price: product.price,
+  //             });
+  //           }
+  //         }
+
+  //         await prismaClient.recurringInvoice.create({
+  //           data: {
+  //             user: {
+  //               connect: {
+  //                 user_id: userId,
+  //               },
+  //             },
+  //             client: {
+  //               connect: {
+  //                 client_id: clientId,
+  //               },
+  //             },
+  //             pattern: recurring_pattern as RecurringPattern,
+  //             next_invoice_date: nextInvoiceDate,
+  //             start_date: new Date(),
+  //             is_active: true,
+  //             generated_invoices: {
+  //               connect: {
+  //                 invoice_id: updatedInvoice.invoice_id,
+  //               },
+  //             },
+  //             items: {
+  //               create: itemsToCreate,
+  //             },
+  //           },
+  //         });
+  //       }
+
+  //       return updatedInvoice;
+  //     });
+
+  //     res.status(201).json({
+  //       message: "Invoice created successfully",
+  //       invoice,
+  //     });
+  //   } catch (error: any) {
+  //     this.handleError(res, error, "create invoice");
+  //   }
+  // }
   async createInvoice(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.user_id;
@@ -142,7 +347,7 @@ export class InvoiceController {
         items,
         notes,
         terms,
-        discount_amount, // Add support for discount
+        discount_amount,
         is_recurring,
         recurring_pattern,
       } = req.body;
@@ -165,169 +370,184 @@ export class InvoiceController {
       const invoiceNumber = await generateInvoiceNumber(userId, clientId);
 
       // Start a transaction to ensure data consistency
-      const invoice = await prisma.$transaction(async (prismaClient) => {
-        // Create the invoice first
-        const newInvoice = await prismaClient.invoice.create({
-          data: {
-            user_id: userId,
-            client_id: clientId,
-            invoice_number: invoiceNumber,
-            issue_date: new Date(issue_date),
-            due_date: new Date(due_date),
-            status: "DRAFT" as InvoiceStatus,
-            subtotal: 0, // Will update this later
-            tax_amount: 0, // Will update this later
-            discount_amount: discountValue || null, // Add support for discount
-            total_amount: 0, // Will update this later
-            notes,
-            terms,
-          },
-        });
-
-        // Create the invoice items and calculate totals
-        const invoiceItems = [];
-
-        for (const item of items) {
-          // Ensure product_id is an integer
-          const productId = parseInt(item.product_id, 10);
-
-          if (isNaN(productId)) {
-            throw new Error(`Invalid product ID format: ${item.product_id}`);
-          }
-
-          const product = await prismaClient.product.findFirst({
-            where: {
-              product_id: productId,
-              user_id: userId,
-            },
-          });
-
-          if (!product) {
-            throw new Error(`Product with ID ${productId} not found`);
-          }
-
-          const quantity = item.quantity;
-          const unitPrice = parseFloat(product.price.toString());
-          const itemAmount = quantity * unitPrice;
-
-          let itemTaxAmount = 0;
-          if (product.tax_rate) {
-            const taxRate = parseFloat(product.tax_rate.toString());
-            itemTaxAmount = itemAmount * (taxRate / 100);
-          }
-
-          subtotal += itemAmount;
-          tax_amount += itemTaxAmount;
-
-          const invoiceItem = await prismaClient.invoiceItem.create({
+      try {
+        // Wrap the entire transaction in another try/catch for better error logging
+        const invoice = await prisma.$transaction(async (prismaClient) => {
+          // Create the invoice first
+          const newInvoice = await prismaClient.invoice.create({
             data: {
-              invoice_id: newInvoice.invoice_id,
-              product_id: productId,
-              description: item.description || product.description,
-              quantity,
-              unit_price: unitPrice,
-              tax_rate: product.tax_rate
-                ? parseFloat(product.tax_rate.toString())
-                : null,
-              tax_amount: itemTaxAmount,
-              amount: itemAmount,
+              user_id: userId,
+              client_id: clientId,
+              invoice_number: invoiceNumber,
+              issue_date: new Date(issue_date),
+              due_date: new Date(due_date),
+              status: "DRAFT" as InvoiceStatus,
+              subtotal: 0, // Will update this later
+              tax_amount: 0, // Will update this later
+              discount_amount: discountValue || null,
+              total_amount: 0, // Will update this later
+              notes,
+              terms,
             },
           });
 
-          invoiceItems.push(invoiceItem);
-        }
+          // Create the invoice items and calculate totals
+          const invoiceItems = [];
 
-        // Calculate the total amount with discount
-        const total_amount = subtotal + tax_amount - (discountValue || 0);
-
-        // Update the invoice with calculated totals
-        const updatedInvoice = await prismaClient.invoice.update({
-          where: {
-            invoice_id: newInvoice.invoice_id,
-          },
-          data: {
-            subtotal,
-            tax_amount,
-            discount_amount: discountValue || null,
-            total_amount,
-          },
-          include: {
-            client: true,
-            items: {
-              include: {
-                product: true,
-              },
-            },
-          },
-        });
-
-        // Handle recurring invoice setup if needed
-        if (is_recurring && recurring_pattern) {
-          const nextInvoiceDate = calculateNextInvoiceDate(
-            new Date(due_date),
-            recurring_pattern as RecurringPattern
-          );
-
-          // Fixed the issue with async in map and the user_id type issue
-          const itemsToCreate = [];
           for (const item of items) {
-            // Ensure product_id is an integer here too
+            // Log item for debugging
+            console.log("Processing item:", JSON.stringify(item));
+
+            // Ensure product_id is an integer
             const productId = parseInt(item.product_id, 10);
 
             if (isNaN(productId)) {
               throw new Error(`Invalid product ID format: ${item.product_id}`);
             }
 
-            const product = await prismaClient.product.findUnique({
-              where: { product_id: productId },
+            const product = await prismaClient.product.findFirst({
+              where: {
+                product_id: productId,
+                user_id: userId,
+              },
             });
 
-            if (product) {
-              itemsToCreate.push({
-                product_id: productId,
-                description: item.description,
-                quantity: item.quantity,
-                unit_price: product.price,
-              });
+            if (!product) {
+              throw new Error(`Product with ID ${productId} not found`);
             }
+
+            const quantity = parseFloat(item.quantity); // Ensure quantity is a number
+            const unitPrice = parseFloat(product.price.toString());
+            const itemAmount = quantity * unitPrice;
+
+            let itemTaxAmount = 0;
+            if (product.tax_rate) {
+              const taxRate = parseFloat(product.tax_rate.toString());
+              itemTaxAmount = itemAmount * (taxRate / 100);
+            }
+
+            subtotal += itemAmount;
+            tax_amount += itemTaxAmount;
+
+            const invoiceItem = await prismaClient.invoiceItem.create({
+              data: {
+                invoice_id: newInvoice.invoice_id,
+                product_id: productId,
+                description: item.description || product.description,
+                quantity,
+                unit_price: unitPrice,
+                tax_rate: product.tax_rate
+                  ? parseFloat(product.tax_rate.toString())
+                  : null,
+                tax_amount: itemTaxAmount,
+                amount: itemAmount,
+              },
+            });
+
+            invoiceItems.push(invoiceItem);
           }
 
-          await prismaClient.recurringInvoice.create({
+          // Calculate the total amount with discount
+          const total_amount = subtotal + tax_amount - (discountValue || 0);
+
+          // Update the invoice with calculated totals
+          const updatedInvoice = await prismaClient.invoice.update({
+            where: {
+              invoice_id: newInvoice.invoice_id,
+            },
             data: {
-              user: {
-                connect: {
-                  user_id: userId,
-                },
-              },
-              client: {
-                connect: {
-                  client_id: clientId,
-                },
-              },
-              pattern: recurring_pattern as RecurringPattern,
-              next_invoice_date: nextInvoiceDate,
-              start_date: new Date(),
-              is_active: true,
-              generated_invoices: {
-                connect: {
-                  invoice_id: updatedInvoice.invoice_id,
-                },
-              },
+              subtotal,
+              tax_amount,
+              discount_amount: discountValue || null,
+              total_amount,
+            },
+            include: {
+              client: true,
               items: {
-                create: itemsToCreate,
+                include: {
+                  product: true,
+                },
               },
             },
           });
-        }
 
-        return updatedInvoice;
-      });
+          // Handle recurring invoice setup if needed
+          if (is_recurring && recurring_pattern) {
+            console.log(
+              "Setting up recurring invoice with pattern:",
+              recurring_pattern
+            );
 
-      res.status(201).json({
-        message: "Invoice created successfully",
-        invoice,
-      });
+            const nextInvoiceDate = calculateNextInvoiceDate(
+              new Date(due_date),
+              recurring_pattern as RecurringPattern
+            );
+
+            // Create items for recurring invoice with explicit type conversions
+            const itemsToCreate = [];
+            for (const item of items) {
+              const productId = parseInt(item.product_id, 10);
+
+              if (isNaN(productId)) {
+                throw new Error(
+                  `Invalid product ID format: ${item.product_id}`
+                );
+              }
+
+              const product = await prismaClient.product.findUnique({
+                where: { product_id: productId },
+              });
+
+              if (product) {
+                // Ensure all numeric values are properly converted
+                itemsToCreate.push({
+                  product_id: productId,
+                  description: item.description || "",
+                  quantity: parseFloat(item.quantity),
+                  unit_price: parseFloat(product.price.toString()),
+                });
+              }
+            }
+
+            console.log(
+              "Creating recurring invoice with items:",
+              JSON.stringify(itemsToCreate)
+            );
+
+            // Create recurring invoice with explicit connection objects
+            await prismaClient.recurringInvoice.create({
+              data: {
+                user_id: userId, // Direct assignment instead of using connect
+                client_id: clientId, // Direct assignment instead of using connect
+                pattern: recurring_pattern as RecurringPattern,
+                next_invoice_date: nextInvoiceDate,
+                start_date: new Date(),
+                is_active: true,
+                generated_invoices: {
+                  connect: {
+                    invoice_id: updatedInvoice.invoice_id,
+                  },
+                },
+                items: {
+                  create: itemsToCreate,
+                },
+              },
+            });
+          }
+
+          return updatedInvoice;
+        });
+
+        res.status(201).json({
+          message: "Invoice created successfully",
+          invoice,
+        });
+      } catch (transactionError) {
+        console.error("Transaction error:", transactionError);
+        throw transactionError; // Re-throw to be caught by outer catch
+      }
     } catch (error: any) {
+      console.error("Error creating invoice:", error);
       this.handleError(res, error, "create invoice");
     }
   }
