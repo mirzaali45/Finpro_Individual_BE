@@ -132,8 +132,6 @@ export class RecurringInvoiceController {
       this.handleError(res, error, "fetch recurring invoice");
     }
   };
-
-  // Create a new recurring invoice
   createRecurringInvoice = async (
     req: Request,
     res: Response
@@ -154,6 +152,15 @@ export class RecurringInvoiceController {
         source_invoice_id,
       } = req.body;
 
+      // Pastikan client_id adalah number
+      const clientId = parseInt(client_id, 10);
+
+      // Validasi clientId
+      if (isNaN(clientId)) {
+        res.status(400).json({ message: "Invalid client ID format" });
+        return;
+      }
+
       // Validate pattern
       if (
         !Object.values(RecurringPattern).includes(pattern as RecurringPattern)
@@ -162,102 +169,265 @@ export class RecurringInvoiceController {
         return;
       }
 
-      // Start a transaction to ensure data consistency
-      const recurringInvoice = await prisma.$transaction(
-        async (prismaClient) => {
-          // Create the recurring invoice
-          const newRecurringInvoice =
-            await prismaClient.recurringInvoice.create({
-              data: {
-                user: {
-                  connect: {
-                    user_id: userId,
-                  },
-                },
-                client: {
-                  connect: {
-                    client_id,
-                  },
-                },
-                pattern: pattern as RecurringPattern,
-                next_invoice_date: new Date(next_invoice_date),
-                start_date: new Date(),
-                is_active: true,
-              },
-            });
+      console.log("Creating recurring invoice with pattern:", pattern);
+      console.log("Items received:", JSON.stringify(items));
 
-          // Create recurring invoice items
-          for (const item of items) {
-            const product = await prismaClient.product.findFirst({
-              where: {
-                product_id: item.product_id,
-                user_id: userId,
-              },
-            });
-
-            if (!product) {
-              throw new Error(`Product with ID ${item.product_id} not found`);
-            }
-
-            await prismaClient.recurringInvoiceItem.create({
-              data: {
-                recurring_id: newRecurringInvoice.id,
-                product_id: product.product_id,
-                description: item.description || product.description,
-                quantity: item.quantity,
-                unit_price: product.price,
-              },
-            });
-          }
-
-          // If a source invoice ID is provided, connect it to this recurring invoice
-          if (source_invoice_id) {
-            const invoice = await prismaClient.invoice.findFirst({
-              where: {
-                invoice_id: source_invoice_id,
-                user_id: userId,
-                deleted_at: null,
-              },
-            });
-
-            if (invoice) {
-              await prismaClient.invoice.update({
-                where: {
-                  invoice_id: source_invoice_id,
-                },
+      try {
+        const recurringInvoice = await prisma.$transaction(
+          async (prismaClient) => {
+            // Create the recurring invoice with direct assignment
+            const newRecurringInvoice =
+              await prismaClient.recurringInvoice.create({
                 data: {
-                  source_recurring_id: newRecurringInvoice.id,
+                  user_id: userId, // Direct assignment
+                  client_id: clientId, // Direct assignment
+                  pattern: pattern as RecurringPattern,
+                  next_invoice_date: new Date(next_invoice_date),
+                  start_date: new Date(),
+                  is_active: true,
+                },
+              });
+
+            console.log("Created recurring invoice:", newRecurringInvoice.id);
+
+            // Create items with proper type conversion
+            for (const item of items) {
+              // Validasi product_id
+              const productId = parseInt(item.product_id, 10);
+              if (isNaN(productId)) {
+                throw new Error(
+                  `Invalid product ID format: ${item.product_id}`
+                );
+              }
+
+              // Validasi product
+              const product = await prismaClient.product.findFirst({
+                where: {
+                  product_id: productId,
+                  user_id: userId,
+                },
+              });
+
+              if (!product) {
+                throw new Error(`Product with ID ${productId} not found`);
+              }
+
+              // Validasi quantity
+              const quantity = parseFloat(item.quantity);
+              if (isNaN(quantity)) {
+                throw new Error(`Invalid quantity format: ${item.quantity}`);
+              }
+
+              // Buat item recurring
+              await prismaClient.recurringInvoiceItem.create({
+                data: {
+                  recurring_id: newRecurringInvoice.id,
+                  product_id: productId,
+                  description: item.description || product.description || "",
+                  quantity: quantity,
+                  unit_price: parseFloat(product.price.toString()),
                 },
               });
             }
-          }
 
-          // Return the created recurring invoice with its related data
-          return prismaClient.recurringInvoice.findUnique({
-            where: {
-              id: newRecurringInvoice.id,
-            },
-            include: {
-              client: true,
-              items: {
-                include: {
-                  product: true,
-                },
+            // Handle source invoice jika ada
+            if (source_invoice_id) {
+              const sourceId = parseInt(source_invoice_id, 10);
+              if (!isNaN(sourceId)) {
+                const invoice = await prismaClient.invoice.findFirst({
+                  where: {
+                    invoice_id: sourceId,
+                    user_id: userId,
+                    deleted_at: null,
+                  },
+                });
+
+                if (invoice) {
+                  // Update invoice dengan source_recurring_id
+                  await prismaClient.invoice.update({
+                    where: {
+                      invoice_id: sourceId,
+                    },
+                    data: {
+                      source_recurring_id: newRecurringInvoice.id,
+                    },
+                  });
+
+                  // Update recurring invoice untuk connect ke invoice
+                  await prismaClient.recurringInvoice.update({
+                    where: {
+                      id: newRecurringInvoice.id,
+                    },
+                    data: {
+                      generated_invoices: {
+                        connect: {
+                          invoice_id: sourceId,
+                        },
+                      },
+                    },
+                  });
+                }
+              }
+            }
+
+            return prismaClient.recurringInvoice.findUnique({
+              where: {
+                id: newRecurringInvoice.id,
               },
-              generated_invoices: true,
-            },
-          });
-        }
-      );
+              include: {
+                client: true,
+                items: {
+                  include: {
+                    product: true,
+                  },
+                },
+                generated_invoices: true,
+              },
+            });
+          }
+        );
 
-      res.status(201).json({
-        message: "Recurring invoice created successfully",
-        recurringInvoice,
-      });
+        res.status(201).json({
+          message: "Recurring invoice created successfully",
+          recurringInvoice,
+        });
+      } catch (transactionError) {
+        console.error(
+          "Transaction error in createRecurringInvoice:",
+          transactionError
+        );
+        throw transactionError;
+      }
     } catch (error: any) {
+      console.error("Error in createRecurringInvoice:", error);
       this.handleError(res, error, "create recurring invoice");
     }
   };
+  // Create a new recurring invoice
+  // createRecurringInvoice = async (
+  //   req: Request,
+  //   res: Response
+  // ): Promise<void> => {
+  //   try {
+  //     const userId = req.user?.user_id;
+
+  //     if (!userId) {
+  //       res.status(401).json({ message: "User not authenticated" });
+  //       return;
+  //     }
+
+  //     const {
+  //       client_id,
+  //       pattern,
+  //       next_invoice_date,
+  //       items,
+  //       source_invoice_id,
+  //     } = req.body;
+
+  //     // Validate pattern
+  //     if (
+  //       !Object.values(RecurringPattern).includes(pattern as RecurringPattern)
+  //     ) {
+  //       res.status(400).json({ message: "Invalid recurring pattern" });
+  //       return;
+  //     }
+
+  //     // Start a transaction to ensure data consistency
+  //     const recurringInvoice = await prisma.$transaction(
+  //       async (prismaClient) => {
+  //         // Create the recurring invoice
+  //         const newRecurringInvoice =
+  //           await prismaClient.recurringInvoice.create({
+  //             data: {
+  //               user: {
+  //                 connect: {
+  //                   user_id: userId,
+  //                 },
+  //               },
+  //               client: {
+  //                 connect: {
+  //                   client_id,
+  //                 },
+  //               },
+  //               pattern: pattern as RecurringPattern,
+  //               next_invoice_date: new Date(next_invoice_date),
+  //               start_date: new Date(),
+  //               is_active: true,
+  //             },
+  //           });
+
+  //         // Create recurring invoice items
+  //         for (const item of items) {
+  //           const product = await prismaClient.product.findFirst({
+  //             where: {
+  //               product_id: item.product_id,
+  //               user_id: userId,
+  //             },
+  //           });
+
+  //           if (!product) {
+  //             throw new Error(`Product with ID ${item.product_id} not found`);
+  //           }
+
+  //           await prismaClient.recurringInvoiceItem.create({
+  //             data: {
+  //               recurring_id: newRecurringInvoice.id,
+  //               product_id: product.product_id,
+  //               description: item.description || product.description,
+  //               quantity: item.quantity,
+  //               unit_price: product.price,
+  //             },
+  //           });
+  //         }
+
+  //         // If a source invoice ID is provided, connect it to this recurring invoice
+  //         if (source_invoice_id) {
+  //           const invoice = await prismaClient.invoice.findFirst({
+  //             where: {
+  //               invoice_id: source_invoice_id,
+  //               user_id: userId,
+  //               deleted_at: null,
+  //             },
+  //           });
+
+  //           if (invoice) {
+  //             await prismaClient.invoice.update({
+  //               where: {
+  //                 invoice_id: source_invoice_id,
+  //               },
+  //               data: {
+  //                 source_recurring_id: newRecurringInvoice.id,
+  //               },
+  //             });
+  //           }
+  //         }
+
+  //         // Return the created recurring invoice with its related data
+  //         return prismaClient.recurringInvoice.findUnique({
+  //           where: {
+  //             id: newRecurringInvoice.id,
+  //           },
+  //           include: {
+  //             client: true,
+  //             items: {
+  //               include: {
+  //                 product: true,
+  //               },
+  //             },
+  //             generated_invoices: true,
+  //           },
+  //         });
+  //       }
+  //     );
+
+  //     res.status(201).json({
+  //       message: "Recurring invoice created successfully",
+  //       recurringInvoice,
+  //     });
+  //   } catch (error: any) {
+  //     this.handleError(res, error, "create recurring invoice");
+  //   }
+  // };
 
   // Update an existing recurring invoice
   updateRecurringInvoice = async (
