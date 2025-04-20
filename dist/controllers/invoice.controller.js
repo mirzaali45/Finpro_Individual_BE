@@ -509,9 +509,9 @@ class InvoiceController {
                 const discountValue = discount_amount ? parseFloat(discount_amount) : 0;
                 // Generate a unique invoice number including the client ID
                 const invoiceNumber = yield (0, invoice_utils_1.generateInvoiceNumber)(userId, clientId);
-                // Start a transaction to ensure data consistency
+                // Pisahkan pembuatan invoice dan recurring invoice untuk mengatasi timeout
                 try {
-                    // Wrap the entire transaction in another try/catch for better error logging
+                    // Buat invoice dalam transaksi dengan timeout yang ditingkatkan
                     const invoice = yield prisma.$transaction((prismaClient) => __awaiter(this, void 0, void 0, function* () {
                         // Create the invoice first
                         const newInvoice = yield prismaClient.invoice.create({
@@ -533,8 +533,6 @@ class InvoiceController {
                         // Create the invoice items and calculate totals
                         const invoiceItems = [];
                         for (const item of items) {
-                            // Log item for debugging
-                            console.log("Processing item:", JSON.stringify(item));
                             // Ensure product_id is an integer
                             const productId = parseInt(item.product_id, 10);
                             if (isNaN(productId)) {
@@ -549,7 +547,7 @@ class InvoiceController {
                             if (!product) {
                                 throw new Error(`Product with ID ${productId} not found`);
                             }
-                            const quantity = parseFloat(item.quantity); // Ensure quantity is a number
+                            const quantity = parseFloat(item.quantity);
                             const unitPrice = parseFloat(product.price.toString());
                             const itemAmount = quantity * unitPrice;
                             let itemTaxAmount = 0;
@@ -597,22 +595,24 @@ class InvoiceController {
                                 },
                             },
                         });
-                        // Handle recurring invoice setup if needed
-                        if (is_recurring && recurring_pattern) {
+                        return updatedInvoice;
+                    }), {
+                        timeout: 15000, // Meningkatkan timeout menjadi 15 detik
+                        maxWait: 10000, // Waktu maksimal menunggu untuk mendapatkan koneksi
+                    });
+                    // Jika memerlukan recurring, buat recurring di luar transaksi utama
+                    if (is_recurring && recurring_pattern) {
+                        try {
                             console.log("Setting up recurring invoice with pattern:", recurring_pattern);
                             const nextInvoiceDate = (0, dateUtils_1.calculateNextInvoiceDate)(new Date(due_date), recurring_pattern);
-                            // Create items for recurring invoice with explicit type conversions
+                            // Siapkan data untuk recurring invoice
                             const itemsToCreate = [];
                             for (const item of items) {
                                 const productId = parseInt(item.product_id, 10);
-                                if (isNaN(productId)) {
-                                    throw new Error(`Invalid product ID format: ${item.product_id}`);
-                                }
-                                const product = yield prismaClient.product.findUnique({
+                                const product = yield prisma.product.findUnique({
                                     where: { product_id: productId },
                                 });
                                 if (product) {
-                                    // Ensure all numeric values are properly converted
                                     itemsToCreate.push({
                                         product_id: productId,
                                         description: item.description || "",
@@ -621,19 +621,18 @@ class InvoiceController {
                                     });
                                 }
                             }
-                            console.log("Creating recurring invoice with items:", JSON.stringify(itemsToCreate));
-                            // Create recurring invoice with explicit connection objects
-                            yield prismaClient.recurringInvoice.create({
+                            // Buat recurring invoice dengan Direct Assignment
+                            yield prisma.recurringInvoice.create({
                                 data: {
-                                    user_id: userId, // Direct assignment instead of using connect
-                                    client_id: clientId, // Direct assignment instead of using connect
+                                    user_id: userId,
+                                    client_id: clientId,
                                     pattern: recurring_pattern,
                                     next_invoice_date: nextInvoiceDate,
                                     start_date: new Date(),
                                     is_active: true,
                                     generated_invoices: {
                                         connect: {
-                                            invoice_id: updatedInvoice.invoice_id,
+                                            invoice_id: invoice.invoice_id,
                                         },
                                     },
                                     items: {
@@ -642,8 +641,17 @@ class InvoiceController {
                                 },
                             });
                         }
-                        return updatedInvoice;
-                    }));
+                        catch (recurringError) {
+                            console.error("Error creating recurring invoice:", recurringError);
+                            // Jangan gagalkan seluruh operasi jika recurring gagal
+                            res.status(201).json({
+                                message: "Invoice created successfully, but failed to set up recurring schedule",
+                                invoice,
+                                warning: "Failed to set up recurring schedule",
+                            });
+                            return;
+                        }
+                    }
                     res.status(201).json({
                         message: "Invoice created successfully",
                         invoice,
@@ -651,7 +659,7 @@ class InvoiceController {
                 }
                 catch (transactionError) {
                     console.error("Transaction error:", transactionError);
-                    throw transactionError; // Re-throw to be caught by outer catch
+                    throw transactionError;
                 }
             }
             catch (error) {

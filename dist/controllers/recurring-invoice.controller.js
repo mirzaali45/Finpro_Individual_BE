@@ -124,113 +124,128 @@ class RecurringInvoiceController {
                 }
                 console.log("Creating recurring invoice with pattern:", pattern);
                 console.log("Items received:", JSON.stringify(items));
+                // Persiapkan dan validasi item di luar transaksi untuk mengurangi waktu transaksi
+                const preparedItems = [];
+                for (const item of items) {
+                    const productId = parseInt(item.product_id, 10);
+                    if (isNaN(productId)) {
+                        res
+                            .status(400)
+                            .json({ message: `Invalid product ID format: ${item.product_id}` });
+                        return;
+                    }
+                    const product = yield prisma.product.findFirst({
+                        where: {
+                            product_id: productId,
+                            user_id: userId,
+                        },
+                    });
+                    if (!product) {
+                        res
+                            .status(404)
+                            .json({ message: `Product with ID ${productId} not found` });
+                        return;
+                    }
+                    const quantity = parseInt(item.quantity, 10);
+                    if (isNaN(quantity)) {
+                        res
+                            .status(400)
+                            .json({ message: `Invalid quantity format: ${item.quantity}` });
+                        return;
+                    }
+                    preparedItems.push({
+                        product_id: productId,
+                        description: item.description || product.description || "",
+                        quantity: quantity,
+                        unit_price: parseFloat(product.price.toString()),
+                    });
+                }
+                // Buat recurring invoice dasar tanpa relasi kompleks
                 try {
-                    const recurringInvoice = yield prisma.$transaction((prismaClient) => __awaiter(this, void 0, void 0, function* () {
-                        // Create the recurring invoice with direct assignment
-                        const newRecurringInvoice = yield prismaClient.recurringInvoice.create({
+                    // Buat recurring invoice dasar
+                    const newRecurringInvoice = yield prisma.recurringInvoice.create({
+                        data: {
+                            user_id: userId,
+                            client_id: clientId,
+                            pattern: pattern,
+                            next_invoice_date: new Date(next_invoice_date),
+                            start_date: new Date(),
+                            is_active: true,
+                        },
+                    });
+                    console.log("Created recurring invoice base:", newRecurringInvoice.id);
+                    // Buat item untuk recurring invoice secara terpisah
+                    for (const item of preparedItems) {
+                        yield prisma.recurringInvoiceItem.create({
                             data: {
-                                user_id: userId, // Direct assignment
-                                client_id: clientId, // Direct assignment
-                                pattern: pattern,
-                                next_invoice_date: new Date(next_invoice_date),
-                                start_date: new Date(),
-                                is_active: true,
+                                recurring_id: newRecurringInvoice.id,
+                                product_id: item.product_id,
+                                description: item.description,
+                                quantity: item.quantity,
+                                unit_price: item.unit_price,
                             },
                         });
-                        console.log("Created recurring invoice:", newRecurringInvoice.id);
-                        // Create items with proper type conversion
-                        for (const item of items) {
-                            // Validasi product_id
-                            const productId = parseInt(item.product_id, 10);
-                            if (isNaN(productId)) {
-                                throw new Error(`Invalid product ID format: ${item.product_id}`);
-                            }
-                            // Validasi product
-                            const product = yield prismaClient.product.findFirst({
+                    }
+                    // Tangani source invoice jika ada
+                    if (source_invoice_id) {
+                        const sourceId = parseInt(source_invoice_id, 10);
+                        if (!isNaN(sourceId)) {
+                            const invoice = yield prisma.invoice.findFirst({
                                 where: {
-                                    product_id: productId,
+                                    invoice_id: sourceId,
                                     user_id: userId,
+                                    deleted_at: null,
                                 },
                             });
-                            if (!product) {
-                                throw new Error(`Product with ID ${productId} not found`);
-                            }
-                            // Validasi quantity
-                            const quantity = parseFloat(item.quantity);
-                            if (isNaN(quantity)) {
-                                throw new Error(`Invalid quantity format: ${item.quantity}`);
-                            }
-                            // Buat item recurring
-                            yield prismaClient.recurringInvoiceItem.create({
-                                data: {
-                                    recurring_id: newRecurringInvoice.id,
-                                    product_id: productId,
-                                    description: item.description || product.description || "",
-                                    quantity: quantity,
-                                    unit_price: parseFloat(product.price.toString()),
-                                },
-                            });
-                        }
-                        // Handle source invoice jika ada
-                        if (source_invoice_id) {
-                            const sourceId = parseInt(source_invoice_id, 10);
-                            if (!isNaN(sourceId)) {
-                                const invoice = yield prismaClient.invoice.findFirst({
+                            if (invoice) {
+                                // Update invoice dengan source_recurring_id
+                                yield prisma.invoice.update({
                                     where: {
                                         invoice_id: sourceId,
-                                        user_id: userId,
-                                        deleted_at: null,
+                                    },
+                                    data: {
+                                        source_recurring_id: newRecurringInvoice.id,
                                     },
                                 });
-                                if (invoice) {
-                                    // Update invoice dengan source_recurring_id
-                                    yield prismaClient.invoice.update({
-                                        where: {
-                                            invoice_id: sourceId,
-                                        },
-                                        data: {
-                                            source_recurring_id: newRecurringInvoice.id,
-                                        },
-                                    });
-                                    // Update recurring invoice untuk connect ke invoice
-                                    yield prismaClient.recurringInvoice.update({
-                                        where: {
-                                            id: newRecurringInvoice.id,
-                                        },
-                                        data: {
-                                            generated_invoices: {
-                                                connect: {
-                                                    invoice_id: sourceId,
-                                                },
+                                // Update recurring invoice untuk connect ke invoice
+                                yield prisma.recurringInvoice.update({
+                                    where: {
+                                        id: newRecurringInvoice.id,
+                                    },
+                                    data: {
+                                        generated_invoices: {
+                                            connect: {
+                                                invoice_id: sourceId,
                                             },
                                         },
-                                    });
-                                }
+                                    },
+                                });
                             }
                         }
-                        return prismaClient.recurringInvoice.findUnique({
-                            where: {
-                                id: newRecurringInvoice.id,
-                            },
-                            include: {
-                                client: true,
-                                items: {
-                                    include: {
-                                        product: true,
-                                    },
+                    }
+                    // Ambil data lengkap untuk response
+                    const recurringInvoice = yield prisma.recurringInvoice.findUnique({
+                        where: {
+                            id: newRecurringInvoice.id,
+                        },
+                        include: {
+                            client: true,
+                            items: {
+                                include: {
+                                    product: true,
                                 },
-                                generated_invoices: true,
                             },
-                        });
-                    }));
+                            generated_invoices: true,
+                        },
+                    });
                     res.status(201).json({
                         message: "Recurring invoice created successfully",
                         recurringInvoice,
                     });
                 }
-                catch (transactionError) {
-                    console.error("Transaction error in createRecurringInvoice:", transactionError);
-                    throw transactionError;
+                catch (creationError) {
+                    console.error("Error creating recurring invoice:", creationError);
+                    throw creationError;
                 }
             }
             catch (error) {

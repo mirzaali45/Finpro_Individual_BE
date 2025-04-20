@@ -369,110 +369,119 @@ export class InvoiceController {
       // Generate a unique invoice number including the client ID
       const invoiceNumber = await generateInvoiceNumber(userId, clientId);
 
-      // Start a transaction to ensure data consistency
+      // Pisahkan pembuatan invoice dan recurring invoice untuk mengatasi timeout
       try {
-        // Wrap the entire transaction in another try/catch for better error logging
-        const invoice = await prisma.$transaction(async (prismaClient) => {
-          // Create the invoice first
-          const newInvoice = await prismaClient.invoice.create({
-            data: {
-              user_id: userId,
-              client_id: clientId,
-              invoice_number: invoiceNumber,
-              issue_date: new Date(issue_date),
-              due_date: new Date(due_date),
-              status: "DRAFT" as InvoiceStatus,
-              subtotal: 0, // Will update this later
-              tax_amount: 0, // Will update this later
-              discount_amount: discountValue || null,
-              total_amount: 0, // Will update this later
-              notes,
-              terms,
-            },
-          });
-
-          // Create the invoice items and calculate totals
-          const invoiceItems = [];
-
-          for (const item of items) {
-            // Log item for debugging
-            console.log("Processing item:", JSON.stringify(item));
-
-            // Ensure product_id is an integer
-            const productId = parseInt(item.product_id, 10);
-
-            if (isNaN(productId)) {
-              throw new Error(`Invalid product ID format: ${item.product_id}`);
-            }
-
-            const product = await prismaClient.product.findFirst({
-              where: {
-                product_id: productId,
-                user_id: userId,
-              },
-            });
-
-            if (!product) {
-              throw new Error(`Product with ID ${productId} not found`);
-            }
-
-            const quantity = parseFloat(item.quantity); // Ensure quantity is a number
-            const unitPrice = parseFloat(product.price.toString());
-            const itemAmount = quantity * unitPrice;
-
-            let itemTaxAmount = 0;
-            if (product.tax_rate) {
-              const taxRate = parseFloat(product.tax_rate.toString());
-              itemTaxAmount = itemAmount * (taxRate / 100);
-            }
-
-            subtotal += itemAmount;
-            tax_amount += itemTaxAmount;
-
-            const invoiceItem = await prismaClient.invoiceItem.create({
+        // Buat invoice dalam transaksi dengan timeout yang ditingkatkan
+        const invoice = await prisma.$transaction(
+          async (prismaClient) => {
+            // Create the invoice first
+            const newInvoice = await prismaClient.invoice.create({
               data: {
-                invoice_id: newInvoice.invoice_id,
-                product_id: productId,
-                description: item.description || product.description,
-                quantity,
-                unit_price: unitPrice,
-                tax_rate: product.tax_rate
-                  ? parseFloat(product.tax_rate.toString())
-                  : null,
-                tax_amount: itemTaxAmount,
-                amount: itemAmount,
+                user_id: userId,
+                client_id: clientId,
+                invoice_number: invoiceNumber,
+                issue_date: new Date(issue_date),
+                due_date: new Date(due_date),
+                status: "DRAFT" as InvoiceStatus,
+                subtotal: 0, // Will update this later
+                tax_amount: 0, // Will update this later
+                discount_amount: discountValue || null,
+                total_amount: 0, // Will update this later
+                notes,
+                terms,
               },
             });
 
-            invoiceItems.push(invoiceItem);
-          }
+            // Create the invoice items and calculate totals
+            const invoiceItems = [];
 
-          // Calculate the total amount with discount
-          const total_amount = subtotal + tax_amount - (discountValue || 0);
+            for (const item of items) {
+              // Ensure product_id is an integer
+              const productId = parseInt(item.product_id, 10);
 
-          // Update the invoice with calculated totals
-          const updatedInvoice = await prismaClient.invoice.update({
-            where: {
-              invoice_id: newInvoice.invoice_id,
-            },
-            data: {
-              subtotal,
-              tax_amount,
-              discount_amount: discountValue || null,
-              total_amount,
-            },
-            include: {
-              client: true,
-              items: {
-                include: {
-                  product: true,
+              if (isNaN(productId)) {
+                throw new Error(
+                  `Invalid product ID format: ${item.product_id}`
+                );
+              }
+
+              const product = await prismaClient.product.findFirst({
+                where: {
+                  product_id: productId,
+                  user_id: userId,
+                },
+              });
+
+              if (!product) {
+                throw new Error(`Product with ID ${productId} not found`);
+              }
+
+              const quantity = parseFloat(item.quantity);
+              const unitPrice = parseFloat(product.price.toString());
+              const itemAmount = quantity * unitPrice;
+
+              let itemTaxAmount = 0;
+              if (product.tax_rate) {
+                const taxRate = parseFloat(product.tax_rate.toString());
+                itemTaxAmount = itemAmount * (taxRate / 100);
+              }
+
+              subtotal += itemAmount;
+              tax_amount += itemTaxAmount;
+
+              const invoiceItem = await prismaClient.invoiceItem.create({
+                data: {
+                  invoice_id: newInvoice.invoice_id,
+                  product_id: productId,
+                  description: item.description || product.description,
+                  quantity,
+                  unit_price: unitPrice,
+                  tax_rate: product.tax_rate
+                    ? parseFloat(product.tax_rate.toString())
+                    : null,
+                  tax_amount: itemTaxAmount,
+                  amount: itemAmount,
+                },
+              });
+
+              invoiceItems.push(invoiceItem);
+            }
+
+            // Calculate the total amount with discount
+            const total_amount = subtotal + tax_amount - (discountValue || 0);
+
+            // Update the invoice with calculated totals
+            const updatedInvoice = await prismaClient.invoice.update({
+              where: {
+                invoice_id: newInvoice.invoice_id,
+              },
+              data: {
+                subtotal,
+                tax_amount,
+                discount_amount: discountValue || null,
+                total_amount,
+              },
+              include: {
+                client: true,
+                items: {
+                  include: {
+                    product: true,
+                  },
                 },
               },
-            },
-          });
+            });
 
-          // Handle recurring invoice setup if needed
-          if (is_recurring && recurring_pattern) {
+            return updatedInvoice;
+          },
+          {
+            timeout: 15000, // Meningkatkan timeout menjadi 15 detik
+            maxWait: 10000, // Waktu maksimal menunggu untuk mendapatkan koneksi
+          }
+        );
+
+        // Jika memerlukan recurring, buat recurring di luar transaksi utama
+        if (is_recurring && recurring_pattern) {
+          try {
             console.log(
               "Setting up recurring invoice with pattern:",
               recurring_pattern
@@ -483,23 +492,16 @@ export class InvoiceController {
               recurring_pattern as RecurringPattern
             );
 
-            // Create items for recurring invoice with explicit type conversions
+            // Siapkan data untuk recurring invoice
             const itemsToCreate = [];
             for (const item of items) {
               const productId = parseInt(item.product_id, 10);
 
-              if (isNaN(productId)) {
-                throw new Error(
-                  `Invalid product ID format: ${item.product_id}`
-                );
-              }
-
-              const product = await prismaClient.product.findUnique({
+              const product = await prisma.product.findUnique({
                 where: { product_id: productId },
               });
 
               if (product) {
-                // Ensure all numeric values are properly converted
                 itemsToCreate.push({
                   product_id: productId,
                   description: item.description || "",
@@ -509,23 +511,18 @@ export class InvoiceController {
               }
             }
 
-            console.log(
-              "Creating recurring invoice with items:",
-              JSON.stringify(itemsToCreate)
-            );
-
-            // Create recurring invoice with explicit connection objects
-            await prismaClient.recurringInvoice.create({
+            // Buat recurring invoice dengan Direct Assignment
+            await prisma.recurringInvoice.create({
               data: {
-                user_id: userId, // Direct assignment instead of using connect
-                client_id: clientId, // Direct assignment instead of using connect
+                user_id: userId,
+                client_id: clientId,
                 pattern: recurring_pattern as RecurringPattern,
                 next_invoice_date: nextInvoiceDate,
                 start_date: new Date(),
                 is_active: true,
                 generated_invoices: {
                   connect: {
-                    invoice_id: updatedInvoice.invoice_id,
+                    invoice_id: invoice.invoice_id,
                   },
                 },
                 items: {
@@ -533,10 +530,18 @@ export class InvoiceController {
                 },
               },
             });
+          } catch (recurringError) {
+            console.error("Error creating recurring invoice:", recurringError);
+            // Jangan gagalkan seluruh operasi jika recurring gagal
+            res.status(201).json({
+              message:
+                "Invoice created successfully, but failed to set up recurring schedule",
+              invoice,
+              warning: "Failed to set up recurring schedule",
+            });
+            return;
           }
-
-          return updatedInvoice;
-        });
+        }
 
         res.status(201).json({
           message: "Invoice created successfully",
@@ -544,7 +549,7 @@ export class InvoiceController {
         });
       } catch (transactionError) {
         console.error("Transaction error:", transactionError);
-        throw transactionError; // Re-throw to be caught by outer catch
+        throw transactionError;
       }
     } catch (error: any) {
       console.error("Error creating invoice:", error);
