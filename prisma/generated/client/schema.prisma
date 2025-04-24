@@ -68,7 +68,8 @@ model BankAccount {
   created_at     DateTime @default(now())
   updated_at     DateTime @default(now()) @updatedAt
 
-  profile Profile @relation(fields: [profile_id], references: [profile_id])
+  profile  Profile   @relation(fields: [profile_id], references: [profile_id])
+  payments Payment[]
 }
 
 // Model baru untuk E-wallet
@@ -82,7 +83,8 @@ model EWallet {
   created_at   DateTime @default(now())
   updated_at   DateTime @default(now()) @updatedAt
 
-  profile Profile @relation(fields: [profile_id], references: [profile_id])
+  profile  Profile   @relation(fields: [profile_id], references: [profile_id])
+  payments Payment[]
 }
 
 model Client {
@@ -181,7 +183,11 @@ model Payment {
   notes          String?
   created_at     DateTime      @default(now())
 
-  invoice Invoice @relation(fields: [invoice_id], references: [invoice_id])
+  invoice       Invoice      @relation(fields: [invoice_id], references: [invoice_id])
+  EWallet       EWallet?     @relation(fields: [eWalletId], references: [id])
+  eWalletId     Int?
+  BankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+  bankAccountId Int?
 }
 
 // Model baru untuk recurring invoice

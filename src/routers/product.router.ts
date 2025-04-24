@@ -51,12 +51,12 @@ export class ProductRouter {
       this.validationMiddleware.validateProduct as RequestHandler[],
       this.productController.createProductWithImage
     );
-    this.router.post(
+    this.router.put(
       "/:id/archive",
       this.validationMiddleware.validateProductId as RequestHandler[],
       this.productController.archiveProduct
     );
-    this.router.post(
+    this.router.put(
       "/:id/restore",
       this.validationMiddleware.validateProductId as RequestHandler[],
       this.productController.restoreProduct
@@ -82,6 +82,12 @@ export class ProductRouter {
       "/:id",
       this.validationMiddleware.validateProductId as RequestHandler[],
       this.productController.deleteProduct
+    );
+
+    this.router.get(
+      "/:productId/usage",
+      this.validationMiddleware.validateProductId as RequestHandler[],
+      this.productController.getProductUsage
     );
   }
   getRouter(): Router {

@@ -189,6 +189,41 @@ export class Validation {
       body("payment_method")
         .isIn(Object.values(PaymentMethod))
         .withMessage("Invalid payment method"),
+
+      body("reference")
+        .optional()
+        .isString()
+        .withMessage("Reference must be a string"),
+
+      body("notes").optional().isString().withMessage("Notes must be a string"),
+
+      // Validasi bank_account_id (diperlukan jika payment_method adalah BANK_TRANSFER)
+      body("bank_account_id").custom((value, { req }) => {
+        if (req.body.payment_method === "BANK_TRANSFER") {
+          if (!value) {
+            throw new Error(
+              "Bank account ID is required for bank transfer payments"
+            );
+          }
+          if (!Number.isInteger(Number(value))) {
+            throw new Error("Bank account ID must be an integer");
+          }
+        }
+        return true;
+      }),
+
+      // Validasi e_wallet_id (diperlukan jika payment_method adalah E_WALLET)
+      body("e_wallet_id").custom((value, { req }) => {
+        if (req.body.payment_method === "E_WALLET") {
+          if (!value) {
+            throw new Error("E-wallet ID is required for e-wallet payments");
+          }
+          if (!Number.isInteger(Number(value))) {
+            throw new Error("E-wallet ID must be an integer");
+          }
+        }
+        return true;
+      }),
     ];
 
     return this.runValidation(validations);

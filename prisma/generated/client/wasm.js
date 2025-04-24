@@ -247,7 +247,9 @@ exports.Prisma.PaymentScalarFieldEnum = {
   payment_method: 'payment_method',
   reference: 'reference',
   notes: 'notes',
-  created_at: 'created_at'
+  created_at: 'created_at',
+  eWalletId: 'eWalletId',
+  bankAccountId: 'bankAccountId'
 };
 
 exports.Prisma.RecurringInvoiceScalarFieldEnum = {

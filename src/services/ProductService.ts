@@ -298,45 +298,61 @@ export class ProductService {
   /**
    * Search products by name or description
    */
-  async searchProducts(searchTerm: string, userId: number): Promise<Product[]> {
+  // Di ProductService.ts, revisi searchProducts
+  async searchProducts(
+    searchTerm: string,
+    userId: number,
+    includeDeleted: boolean = false
+  ): Promise<Product[]> {
+    const filter: any = {
+      user_id: userId,
+      OR: [
+        {
+          name: {
+            contains: searchTerm,
+            mode: "insensitive",
+          },
+        },
+        {
+          description: {
+            contains: searchTerm,
+            mode: "insensitive",
+          },
+        },
+      ],
+    };
+
+    // Hanya filter berdasarkan deleted_at jika includeDeleted adalah false
+    if (!includeDeleted) {
+      filter.deleted_at = null;
+    }
+
     return this.prisma.product.findMany({
-      where: {
-        user_id: userId,
-        deleted_at: null, // Only search active products
-        OR: [
-          {
-            name: {
-              contains: searchTerm,
-              mode: "insensitive",
-            },
-          },
-          {
-            description: {
-              contains: searchTerm,
-              mode: "insensitive",
-            },
-          },
-        ],
-      },
+      where: filter,
       orderBy: {
         created_at: "desc",
       },
     });
   }
 
-  /**
-   * Get products by category
-   */
+  // Revisi juga untuk getProductsByCategory
   async getProductsByCategory(
     category: string,
-    userId: number
+    userId: number,
+    includeDeleted: boolean = false
   ): Promise<Product[]> {
+    const filter: any = {
+      user_id: userId,
+      category: category,
+    };
+
+    // Hanya filter berdasarkan deleted_at jika includeDeleted adalah false
+    if (!includeDeleted) {
+      filter.deleted_at = null;
+    }
+
     return this.prisma.product.findMany({
-      where: {
-        user_id: userId,
-        deleted_at: null, // Only get active products
-        category: category,
-      },
+      where: filter,
       orderBy: {
         created_at: "desc",
       },
