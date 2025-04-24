@@ -16,15 +16,14 @@ class ProductController {
         /**
          * Get all products (with optional filter for archived products)
          */
+        // Di product.controller.ts
         this.getAllProducts = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { includeDeleted = false } = req.query;
+                const includeDeleted = req.query.includeDeleted === "true" ||
+                    req.query.showArchivedProducts === "true";
                 const userId = req.user.user_id;
-                const products = yield this.productService.getAllProducts(userId, includeDeleted === "true");
-                // Return in the format the frontend expects
-                res.status(200).json({
-                    products: products,
-                });
+                const products = yield this.productService.getAllProducts(userId, includeDeleted);
+                res.status(200).json(products);
             }
             catch (error) {
                 console.error("Error fetching products:", error);
@@ -49,7 +48,6 @@ class ProductController {
                 });
             }
             catch (error) {
-                console.error("Error fetching product:", error);
                 res.status(500).json({ message: "Failed to fetch product", error });
             }
         });

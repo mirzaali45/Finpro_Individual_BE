@@ -279,44 +279,51 @@ class ProductService {
     /**
      * Search products by name or description
      */
-    searchProducts(searchTerm, userId) {
-        return __awaiter(this, void 0, void 0, function* () {
+    // Di ProductService.ts, revisi searchProducts
+    searchProducts(searchTerm_1, userId_1) {
+        return __awaiter(this, arguments, void 0, function* (searchTerm, userId, includeDeleted = false) {
+            const filter = {
+                user_id: userId,
+                OR: [
+                    {
+                        name: {
+                            contains: searchTerm,
+                            mode: "insensitive",
+                        },
+                    },
+                    {
+                        description: {
+                            contains: searchTerm,
+                            mode: "insensitive",
+                        },
+                    },
+                ],
+            };
+            // Hanya filter berdasarkan deleted_at jika includeDeleted adalah false
+            if (!includeDeleted) {
+                filter.deleted_at = null;
+            }
             return this.prisma.product.findMany({
-                where: {
-                    user_id: userId,
-                    deleted_at: null, // Only search active products
-                    OR: [
-                        {
-                            name: {
-                                contains: searchTerm,
-                                mode: "insensitive",
-                            },
-                        },
-                        {
-                            description: {
-                                contains: searchTerm,
-                                mode: "insensitive",
-                            },
-                        },
-                    ],
-                },
+                where: filter,
                 orderBy: {
                     created_at: "desc",
                 },
             });
         });
     }
-    /**
-     * Get products by category
-     */
-    getProductsByCategory(category, userId) {
-        return __awaiter(this, void 0, void 0, function* () {
+    // Revisi juga untuk getProductsByCategory
+    getProductsByCategory(category_1, userId_1) {
+        return __awaiter(this, arguments, void 0, function* (category, userId, includeDeleted = false) {
+            const filter = {
+                user_id: userId,
+                category: category,
+            };
+            // Hanya filter berdasarkan deleted_at jika includeDeleted adalah false
+            if (!includeDeleted) {
+                filter.deleted_at = null;
+            }
             return this.prisma.product.findMany({
-                where: {
-                    user_id: userId,
-                    deleted_at: null, // Only get active products
-                    category: category,
-                },
+                where: filter,
                 orderBy: {
                     created_at: "desc",
                 },

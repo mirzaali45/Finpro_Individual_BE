@@ -28,13 +28,14 @@ class ProductRouter {
         // POST routes
         this.router.post("/", this.validationMiddleware.validateProduct, this.productController.createProduct);
         this.router.post("/with-image", multer_1.default.single("image"), this.validationMiddleware.validateProduct, this.productController.createProductWithImage);
-        this.router.post("/:id/archive", this.validationMiddleware.validateProductId, this.productController.archiveProduct);
-        this.router.post("/:id/restore", this.validationMiddleware.validateProductId, this.productController.restoreProduct);
+        this.router.put("/:id/archive", this.validationMiddleware.validateProductId, this.productController.archiveProduct);
+        this.router.put("/:id/restore", this.validationMiddleware.validateProductId, this.productController.restoreProduct);
         // PUT routes
         this.router.put("/:id", this.validationMiddleware.validateProductId, this.validationMiddleware.validateProduct, this.productController.updateProduct);
         this.router.put("/:id/with-image", this.validationMiddleware.validateProductId, multer_1.default.single("image"), this.validationMiddleware.validateProduct, this.productController.updateProductWithImage);
         // DELETE routes
         this.router.delete("/:id", this.validationMiddleware.validateProductId, this.productController.deleteProduct);
+        this.router.get("/:productId/usage", this.validationMiddleware.validateProductId, this.productController.getProductUsage);
     }
     getRouter() {
         return this.router;
