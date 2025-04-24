@@ -16,23 +16,23 @@ export class ProductController {
   /**
    * Get all products (with optional filter for archived products)
    */
+  // Di product.controller.ts
   public getAllProducts = async (
     req: Request,
     res: Response
   ): Promise<void> => {
     try {
-      const { includeDeleted = false } = req.query;
+      const includeDeleted =
+        req.query.includeDeleted === "true" ||
+        req.query.showArchivedProducts === "true";
       const userId = req.user!.user_id;
 
       const products = await this.productService.getAllProducts(
         userId,
-        includeDeleted === "true"
+        includeDeleted
       );
 
-      // Return in the format the frontend expects
-      res.status(200).json({
-        products: products,
-      });
+      res.status(200).json(products);
     } catch (error) {
       console.error("Error fetching products:", error);
       res.status(500).json({ message: "Failed to fetch products", error });
@@ -65,7 +65,6 @@ export class ProductController {
         product: product,
       });
     } catch (error) {
-      console.error("Error fetching product:", error);
       res.status(500).json({ message: "Failed to fetch product", error });
     }
   };

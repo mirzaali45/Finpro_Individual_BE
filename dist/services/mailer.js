@@ -23,12 +23,6 @@ const MAIL_USER = process.env.EMAIL_USER;
 const MAIL_PASS = process.env.EMAIL_PASS;
 const MAIL_FROM = process.env.MAIL_FROM || MAIL_USER;
 const BASE_URL_FE = process.env.BASE_URL_FE;
-// Tambahkan console log untuk debugging
-console.log("Email Configuration:");
-console.log("- SMTP Host: smtp.gmail.com");
-console.log("- SMTP User:", MAIL_USER ? MAIL_USER.substring(0, 3) + "..." : "Not set");
-console.log("- SMTP Pass:", MAIL_PASS ? "Set (hidden)" : "Not set");
-console.log("- Frontend URL:", BASE_URL_FE);
 // Buat transporter dengan error handling yang lebih baik
 let transporter;
 try {
