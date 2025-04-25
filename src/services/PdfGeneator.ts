@@ -7,17 +7,13 @@ function calculateTotalPaid(invoice: InvoiceForPDF): number {
     return 0;
   }
 
-  // Convert all payment amounts to numbers with fixed precision
-  return Number(
-    invoice.payments
-      .reduce((sum, payment) => {
-        const paymentAmount =
-          typeof payment.amount === "string"
-            ? parseFloat(payment.amount)
-            : payment.amount;
-        return sum + paymentAmount;
-      }, 0)
-      .toFixed(2)
+  return invoice.payments.reduce(
+    (sum, payment) =>
+      sum +
+      (typeof payment.amount === "string"
+        ? parseFloat(payment.amount)
+        : payment.amount),
+    0
   );
 }
 
@@ -153,8 +149,7 @@ export const generateInvoicePdf = async (
       const formatCurrency = (amount: number | string) => {
         const numAmount =
           typeof amount === "string" ? parseFloat(amount) : amount;
-        // Ensure clean integer display with proper rounding
-        return `Rp ${Math.round(numAmount).toLocaleString("id-ID")}`;
+        return `Rp ${numAmount.toLocaleString("id-ID")}`;
       };
 
       // Warna tema
@@ -170,16 +165,12 @@ export const generateInvoicePdf = async (
       const isOverdue = invoice.status === "OVERDUE";
 
       // Hitung total pembayaran dan sisa tagihan dengan benar
-      const totalPaid = Number(calculateTotalPaid(invoice).toFixed(2));
+      const totalPaid = calculateTotalPaid(invoice);
       const totalAmount =
         typeof invoice.total_amount === "string"
-          ? Number(parseFloat(invoice.total_amount).toFixed(2))
-          : Number(invoice.total_amount.toFixed(2));
-      // const balanceDue = Math.max(0, totalAmount - totalPaid);
-      let balanceDue = Number((totalAmount - totalPaid).toFixed(2));
-      if (Math.abs(balanceDue) < 0.01 || invoice.status === "PAID") {
-        balanceDue = 0;
-      }
+          ? parseFloat(invoice.total_amount)
+          : invoice.total_amount;
+      const balanceDue = Math.max(0, totalAmount - totalPaid);
 
       // ===== MULAI MEMBUAT LAYOUT INVOICE =====
 
@@ -544,7 +535,6 @@ export const generateInvoicePdf = async (
         });
 
       // Amount Paid - gunakan total pembayaran yang benar (tidak melebihi total invoice)
-      // Amount Paid - show actual total paid without capping
       yPos += 30;
       doc
         .fontSize(11)
@@ -555,10 +545,12 @@ export const generateInvoicePdf = async (
         });
 
       if (invoice.payments && invoice.payments.length > 0) {
-        // Remove capping - show actual total paid
+        // Pastikan amount paid tidak melebihi total amount
+        const cappedTotalPaid = Math.min(totalPaid, totalAmount);
+
         doc
           .fillColor(successColor)
-          .text(formatCurrency(totalPaid), summaryX + 160, yPos, {
+          .text(formatCurrency(cappedTotalPaid), summaryX + 160, yPos, {
             width: 90,
             align: "right",
           });
@@ -573,7 +565,6 @@ export const generateInvoicePdf = async (
       }
 
       // Balance Due - sisa pembayaran yang benar
-      // Balance Due - with improved display for paid invoices and credits
       yPos += 25;
       const balanceDueColor =
         balanceDue > 0
@@ -581,21 +572,14 @@ export const generateInvoicePdf = async (
             ? dangerColor
             : warningColor
           : successColor;
-
-      // Use appropriate label based on balance
-      let balanceDueText = "BALANCE DUE:";
-      if (balanceDue < 0) {
-        balanceDueText = "CREDIT:";
-      }
-
       doc
         .fontSize(12)
         .fillColor(balanceDueColor)
-        .text(balanceDueText, summaryX, yPos, {
+        .text("BALANCE DUE:", summaryX, yPos, {
           width: 150,
           align: "right",
         })
-        .text(formatCurrency(Math.abs(balanceDue)), summaryX + 160, yPos, {
+        .text(formatCurrency(balanceDue), summaryX + 160, yPos, {
           width: 90,
           align: "right",
         });

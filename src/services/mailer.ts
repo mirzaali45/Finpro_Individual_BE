@@ -608,6 +608,7 @@ export const sendPaymentConfirmation = async (
 
     // Add PDF attachment if available
     if (pdfBuffer) {
+      console.log(`Including PDF attachment of ${pdfBuffer.length} bytes`);
       mailOptions.attachments = [
         {
           filename: `Invoice-${invoiceNumber}.pdf`,
@@ -615,6 +616,10 @@ export const sendPaymentConfirmation = async (
           contentType: "application/pdf",
         },
       ];
+    } else {
+      console.log(
+        "No PDF buffer provided - email will be sent without PDF attachment"
+      );
     }
 
     const info = await transporter.sendMail(mailOptions);
