@@ -464,6 +464,7 @@ const sendPaymentConfirmation = (email_1, invoiceNumber_1, businessName_1, amoun
         };
         // Add PDF attachment if available
         if (pdfBuffer) {
+            console.log(`Including PDF attachment of ${pdfBuffer.length} bytes`);
             mailOptions.attachments = [
                 {
                     filename: `Invoice-${invoiceNumber}.pdf`,
@@ -471,6 +472,9 @@ const sendPaymentConfirmation = (email_1, invoiceNumber_1, businessName_1, amoun
                     contentType: "application/pdf",
                 },
             ];
+        }
+        else {
+            console.log("No PDF buffer provided - email will be sent without PDF attachment");
         }
         const info = yield transporter.sendMail(mailOptions);
         console.log("Payment confirmation email sent successfully:", info.messageId);
