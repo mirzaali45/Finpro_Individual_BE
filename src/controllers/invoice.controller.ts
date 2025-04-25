@@ -20,7 +20,6 @@ const prisma = new PrismaClient();
 export class InvoiceController {
   // Helper method for error handling
   private handleError(res: Response, error: any, message: string): void {
-    console.error(`Error ${message}:`, error);
 
     // Check if it's a validation error from Prisma
     if (error instanceof Prisma.PrismaClientValidationError) {
@@ -297,10 +296,6 @@ export class InvoiceController {
         // Jika memerlukan recurring, buat recurring di luar transaksi utama
         if (is_recurring && recurring_pattern) {
           try {
-            console.log(
-              "Setting up recurring invoice with pattern:",
-              recurring_pattern
-            );
 
             const nextInvoiceDate = calculateNextInvoiceDate(
               new Date(due_date),
@@ -346,7 +341,6 @@ export class InvoiceController {
               },
             });
           } catch (recurringError) {
-            console.error("Error creating recurring invoice:", recurringError);
             // Jangan gagalkan seluruh operasi jika recurring gagal
             res.status(201).json({
               message:
@@ -363,11 +357,9 @@ export class InvoiceController {
           invoice,
         });
       } catch (transactionError) {
-        console.error("Transaction error:", transactionError);
         throw transactionError;
       }
     } catch (error: any) {
-      console.error("Error creating invoice:", error);
       this.handleError(res, error, "create invoice");
     }
   }

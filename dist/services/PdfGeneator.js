@@ -20,10 +20,15 @@ function calculateTotalPaid(invoice) {
     if (!invoice.payments || invoice.payments.length === 0) {
         return 0;
     }
-    return invoice.payments.reduce((sum, payment) => sum +
-        (typeof payment.amount === "string"
+    // Convert all payment amounts to numbers with fixed precision
+    return Number(invoice.payments
+        .reduce((sum, payment) => {
+        const paymentAmount = typeof payment.amount === "string"
             ? parseFloat(payment.amount)
-            : payment.amount), 0);
+            : payment.amount;
+        return sum + paymentAmount;
+    }, 0)
+        .toFixed(2));
 }
 // Fungsi untuk cek apakah perlu halaman baru
 function checkForNewPage(doc, yPos, spaceNeeded, pageHeight) {
@@ -72,7 +77,8 @@ const generateInvoicePdf = (invoice) => __awaiter(void 0, void 0, void 0, functi
             // Format mata uang
             const formatCurrency = (amount) => {
                 const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-                return `Rp ${numAmount.toLocaleString("id-ID")}`;
+                // Ensure clean integer display with proper rounding
+                return `Rp ${Math.round(numAmount).toLocaleString("id-ID")}`;
             };
             // Warna tema
             const primaryColor = "#3498db";
@@ -85,11 +91,15 @@ const generateInvoicePdf = (invoice) => __awaiter(void 0, void 0, void 0, functi
             const isPartial = invoice.status === "PARTIAL";
             const isOverdue = invoice.status === "OVERDUE";
             // Hitung total pembayaran dan sisa tagihan dengan benar
-            const totalPaid = calculateTotalPaid(invoice);
+            const totalPaid = Number(calculateTotalPaid(invoice).toFixed(2));
             const totalAmount = typeof invoice.total_amount === "string"
-                ? parseFloat(invoice.total_amount)
-                : invoice.total_amount;
-            const balanceDue = Math.max(0, totalAmount - totalPaid);
+                ? Number(parseFloat(invoice.total_amount).toFixed(2))
+                : Number(invoice.total_amount.toFixed(2));
+            // const balanceDue = Math.max(0, totalAmount - totalPaid);
+            let balanceDue = Number((totalAmount - totalPaid).toFixed(2));
+            if (Math.abs(balanceDue) < 0.01 || invoice.status === "PAID") {
+                balanceDue = 0;
+            }
             // ===== MULAI MEMBUAT LAYOUT INVOICE =====
             // 1. HEADER - Nama Perusahaan
             doc.fontSize(24).fillColor(secondaryColor).text(businessName, 40, 40);
@@ -392,6 +402,7 @@ const generateInvoicePdf = (invoice) => __awaiter(void 0, void 0, void 0, functi
                 align: "right",
             });
             // Amount Paid - gunakan total pembayaran yang benar (tidak melebihi total invoice)
+            // Amount Paid - show actual total paid without capping
             yPos += 30;
             doc
                 .fontSize(11)
@@ -401,11 +412,10 @@ const generateInvoicePdf = (invoice) => __awaiter(void 0, void 0, void 0, functi
                 align: "right",
             });
             if (invoice.payments && invoice.payments.length > 0) {
-                // Pastikan amount paid tidak melebihi total amount
-                const cappedTotalPaid = Math.min(totalPaid, totalAmount);
+                // Remove capping - show actual total paid
                 doc
                     .fillColor(successColor)
-                    .text(formatCurrency(cappedTotalPaid), summaryX + 160, yPos, {
+                    .text(formatCurrency(totalPaid), summaryX + 160, yPos, {
                     width: 90,
                     align: "right",
                 });
@@ -420,20 +430,26 @@ const generateInvoicePdf = (invoice) => __awaiter(void 0, void 0, void 0, functi
                 });
             }
             // Balance Due - sisa pembayaran yang benar
+            // Balance Due - with improved display for paid invoices and credits
             yPos += 25;
             const balanceDueColor = balanceDue > 0
                 ? isOverdue
                     ? dangerColor
                     : warningColor
                 : successColor;
+            // Use appropriate label based on balance
+            let balanceDueText = "BALANCE DUE:";
+            if (balanceDue < 0) {
+                balanceDueText = "CREDIT:";
+            }
             doc
                 .fontSize(12)
                 .fillColor(balanceDueColor)
-                .text("BALANCE DUE:", summaryX, yPos, {
+                .text(balanceDueText, summaryX, yPos, {
                 width: 150,
                 align: "right",
             })
-                .text(formatCurrency(balanceDue), summaryX + 160, yPos, {
+                .text(formatCurrency(Math.abs(balanceDue)), summaryX + 160, yPos, {
                 width: 90,
                 align: "right",
             });

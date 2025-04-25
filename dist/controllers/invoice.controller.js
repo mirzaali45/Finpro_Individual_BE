@@ -222,7 +222,6 @@ class InvoiceController {
     // Helper method for error handling
     handleError(res, error, message) {
         var _a;
-        console.error(`Error ${message}:`, error);
         // Check if it's a validation error from Prisma
         if (error instanceof client_2.Prisma.PrismaClientValidationError) {
             res.status(400).json({
@@ -457,7 +456,6 @@ class InvoiceController {
                     // Jika memerlukan recurring, buat recurring di luar transaksi utama
                     if (is_recurring && recurring_pattern) {
                         try {
-                            console.log("Setting up recurring invoice with pattern:", recurring_pattern);
                             const nextInvoiceDate = (0, dateUtils_1.calculateNextInvoiceDate)(new Date(due_date), recurring_pattern);
                             // Siapkan data untuk recurring invoice
                             const itemsToCreate = [];
@@ -496,7 +494,6 @@ class InvoiceController {
                             });
                         }
                         catch (recurringError) {
-                            console.error("Error creating recurring invoice:", recurringError);
                             // Jangan gagalkan seluruh operasi jika recurring gagal
                             res.status(201).json({
                                 message: "Invoice created successfully, but failed to set up recurring schedule",
@@ -512,12 +509,10 @@ class InvoiceController {
                     });
                 }
                 catch (transactionError) {
-                    console.error("Transaction error:", transactionError);
                     throw transactionError;
                 }
             }
             catch (error) {
-                console.error("Error creating invoice:", error);
                 this.handleError(res, error, "create invoice");
             }
         });
