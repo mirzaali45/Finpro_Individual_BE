@@ -71,7 +71,7 @@ try {
 }
 
 // Verifikasi koneksi SMTP dengan handling yg lebih baik
-transporter.verify((error) => {
+transporter.verify((error: any) => {
   if (error) {
     console.error("SMTP connection error:", error);
     console.log(

@@ -11,84 +11,75 @@ datasource db {
 }
 
 model User {
-  user_id              Int       @id @default(autoincrement())
-  email                String    @unique
+  user_id              Int                @id @default(autoincrement())
+  email                String             @unique
   username             String?
   password             String?
-  phone                String?   @unique
+  phone                String?            @unique
   first_name           String?
   last_name            String?
   avatar               String?
-  is_google            Boolean   @default(false)
-  verified             Boolean   @default(false)
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @default(now()) @updatedAt
-  deleted_at           DateTime? // Untuk soft delete
+  is_google            Boolean            @default(false)
+  verified             Boolean            @default(false)
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @default(now()) @updatedAt
+  deleted_at           DateTime?
   verify_token         String?
   password_reset_token String?
-
-  // Relations for Invoice Management
-  profile          Profile?
-  clients          Client[]
-  products         Product[]
-  invoices         Invoice[]
-  RecurringInvoice RecurringInvoice[]
+  clients              Client[]
+  invoices             Invoice[]
+  products             Product[]
+  profile              Profile?
+  RecurringInvoice     RecurringInvoice[]
 }
 
 model Profile {
-  profile_id   Int      @id @default(autoincrement())
-  user_id      Int      @unique
-  company_name String?
-  address      String?
-  city         String?
-  state        String?
-  postal_code  String?
-  country      String?
-  logo         String?
-  website      String?
-  tax_number   String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @default(now()) @updatedAt
-
-  // Tambahan untuk BankAccount dan E-wallet
+  profile_id    Int           @id @default(autoincrement())
+  user_id       Int           @unique
+  company_name  String?
+  address       String?
+  city          String?
+  state         String?
+  postal_code   String?
+  country       String?
+  logo          String?
+  website       String?
+  tax_number    String?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @default(now()) @updatedAt
   bank_accounts BankAccount[]
   e_wallets     EWallet[]
-
-  user User @relation(fields: [user_id], references: [user_id])
+  user          User          @relation(fields: [user_id], references: [user_id])
 }
 
-// Model baru untuk BankAccount
 model BankAccount {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   profile_id     Int
   bank_name      String
   account_number String
   account_name   String
-  is_primary     Boolean  @default(false)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now()) @updatedAt
-
-  profile  Profile   @relation(fields: [profile_id], references: [profile_id])
-  payments Payment[]
+  is_primary     Boolean   @default(false)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+  profile        Profile   @relation(fields: [profile_id], references: [profile_id])
+  payments       Payment[]
 }
 
-// Model baru untuk E-wallet
 model EWallet {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   profile_id   Int
-  wallet_type  String // Misalnya: GoPay, OVO, DANA, dll
+  wallet_type  String
   phone_number String
   account_name String
-  is_primary   Boolean  @default(false)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @default(now()) @updatedAt
-
-  profile  Profile   @relation(fields: [profile_id], references: [profile_id])
-  payments Payment[]
+  is_primary   Boolean   @default(false)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @default(now()) @updatedAt
+  profile      Profile   @relation(fields: [profile_id], references: [profile_id])
+  payments     Payment[]
 }
 
 model Client {
-  client_id          Int       @id @default(autoincrement())
+  client_id          Int                @id @default(autoincrement())
   user_id            Int
   name               String
   email              String
@@ -101,61 +92,55 @@ model Client {
   company_name       String?
   payment_preference String?
   notes              String?
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @default(now()) @updatedAt
-  deleted_at         DateTime? // Untuk soft delete
-
-  user             User               @relation(fields: [user_id], references: [user_id])
-  invoices         Invoice[]
-  RecurringInvoice RecurringInvoice[]
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @default(now()) @updatedAt
+  deleted_at         DateTime?
+  user               User               @relation(fields: [user_id], references: [user_id])
+  invoices           Invoice[]
+  RecurringInvoice   RecurringInvoice[]
 }
 
 model Product {
-  product_id  Int       @id @default(autoincrement())
-  user_id     Int
-  name        String
-  description String?
-  price       Decimal   @db.Decimal(10, 2)
-  unit        String?
-  tax_rate    Decimal?  @db.Decimal(5, 2)
-  category    String?
-  image       String? // Add this field for product images
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @default(now()) @updatedAt
-  deleted_at  DateTime? // Untuk soft delete
-
-  user                 User                   @relation(fields: [user_id], references: [user_id])
+  product_id           Int                    @id @default(autoincrement())
+  user_id              Int
+  name                 String
+  description          String?
+  price                Decimal                @db.Decimal(10, 2)
+  unit                 String?
+  tax_rate             Decimal?               @db.Decimal(5, 2)
+  category             String?
+  image                String?
+  created_at           DateTime               @default(now())
+  updated_at           DateTime               @default(now()) @updatedAt
+  deleted_at           DateTime?
   invoiceItems         InvoiceItem[]
+  user                 User                   @relation(fields: [user_id], references: [user_id])
   RecurringInvoiceItem RecurringInvoiceItem[]
 }
 
 model Invoice {
-  invoice_id      Int           @id @default(autoincrement())
-  user_id         Int
-  client_id       Int
-  invoice_number  String        @unique
-  issue_date      DateTime      @default(now())
-  due_date        DateTime
-  status          InvoiceStatus @default(DRAFT)
-  subtotal        Decimal       @db.Decimal(10, 2)
-  tax_amount      Decimal       @db.Decimal(10, 2)
-  discount_amount Decimal?      @db.Decimal(10, 2)
-  total_amount    Decimal       @db.Decimal(10, 2)
-  notes           String?
-  terms           String?
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @default(now()) @updatedAt
-  deleted_at      DateTime? // Untuk soft delete
-
-  // Tambahan field untuk relasi ke recurring invoice
+  invoice_id          Int               @id @default(autoincrement())
+  user_id             Int
+  client_id           Int
+  invoice_number      String            @unique
+  issue_date          DateTime          @default(now())
+  due_date            DateTime
+  status              InvoiceStatus     @default(DRAFT)
+  subtotal            Decimal           @db.Decimal(10, 2)
+  tax_amount          Decimal           @db.Decimal(10, 2)
+  discount_amount     Decimal?          @db.Decimal(10, 2)
+  total_amount        Decimal           @db.Decimal(10, 2)
+  notes               String?
+  terms               String?
+  created_at          DateTime          @default(now())
+  updated_at          DateTime          @default(now()) @updatedAt
+  deleted_at          DateTime?
   source_recurring_id Int?
-
-  // Relasi
-  user             User              @relation(fields: [user_id], references: [user_id])
-  client           Client            @relation(fields: [client_id], references: [client_id])
-  items            InvoiceItem[]
-  payments         Payment[]
-  source_recurring RecurringInvoice? @relation(fields: [source_recurring_id], references: [id])
+  client              Client            @relation(fields: [client_id], references: [client_id])
+  source_recurring    RecurringInvoice? @relation(fields: [source_recurring_id], references: [id])
+  user                User              @relation(fields: [user_id], references: [user_id])
+  items               InvoiceItem[]
+  payments            Payment[]
 }
 
 model InvoiceItem {
@@ -168,9 +153,8 @@ model InvoiceItem {
   tax_rate    Decimal? @db.Decimal(5, 2)
   tax_amount  Decimal? @db.Decimal(10, 2)
   amount      Decimal  @db.Decimal(10, 2)
-
-  invoice Invoice @relation(fields: [invoice_id], references: [invoice_id])
-  product Product @relation(fields: [product_id], references: [product_id])
+  invoice     Invoice  @relation(fields: [invoice_id], references: [invoice_id])
+  product     Product  @relation(fields: [product_id], references: [product_id])
 }
 
 model Payment {
@@ -182,47 +166,41 @@ model Payment {
   reference      String?
   notes          String?
   created_at     DateTime      @default(now())
-
-  invoice       Invoice      @relation(fields: [invoice_id], references: [invoice_id])
-  EWallet       EWallet?     @relation(fields: [eWalletId], references: [id])
-  eWalletId     Int?
-  BankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
-  bankAccountId Int?
+  eWalletId      Int?
+  bankAccountId  Int?
+  BankAccount    BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  EWallet        EWallet?      @relation(fields: [eWalletId], references: [id])
+  invoice        Invoice       @relation(fields: [invoice_id], references: [invoice_id])
 }
 
-// Model baru untuk recurring invoice
 model RecurringInvoice {
-  id                Int              @id @default(autoincrement())
-  user_id           Int
-  client_id         Int
-  pattern           RecurringPattern
-  next_invoice_date DateTime
-  start_date        DateTime         @default(now())
-  end_date          DateTime? // Optional: jika recurring memiliki tanggal akhir
-  is_active         Boolean          @default(true)
-  created_at        DateTime         @default(now())
-  updated_at        DateTime         @default(now()) @updatedAt
-  deleted_at        DateTime? // Untuk soft delete
-
-  // Relasi
-  user               User                   @relation(fields: [user_id], references: [user_id])
+  id                 Int                    @id @default(autoincrement())
+  user_id            Int
+  client_id          Int
+  pattern            RecurringPattern
+  next_invoice_date  DateTime
+  start_date         DateTime               @default(now())
+  end_date           DateTime?
+  is_active          Boolean                @default(true)
+  created_at         DateTime               @default(now())
+  updated_at         DateTime               @default(now()) @updatedAt
+  deleted_at         DateTime?
+  generated_invoices Invoice[]
   client             Client                 @relation(fields: [client_id], references: [client_id])
+  user               User                   @relation(fields: [user_id], references: [user_id])
   items              RecurringInvoiceItem[]
-  generated_invoices Invoice[] // Invoice yang dihasilkan dari recurring ini
 }
 
 model RecurringInvoiceItem {
-  id           Int      @id @default(autoincrement())
-  recurring_id Int
-  product_id   Int
-  description  String?
-  quantity     Int
-  unit_price   Decimal  @db.Decimal(10, 2)
-  tax_rate     Decimal? @db.Decimal(5, 2)
-
-  // Relasi
-  recurring_invoice RecurringInvoice @relation(fields: [recurring_id], references: [id])
+  id                Int              @id @default(autoincrement())
+  recurring_id      Int
+  product_id        Int
+  description       String?
+  quantity          Int
+  unit_price        Decimal          @db.Decimal(10, 2)
+  tax_rate          Decimal?         @db.Decimal(5, 2)
   product           Product          @relation(fields: [product_id], references: [product_id])
+  recurring_invoice RecurringInvoice @relation(fields: [recurring_id], references: [id])
 }
 
 enum InvoiceStatus {

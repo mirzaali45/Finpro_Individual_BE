@@ -136,7 +136,7 @@ export const PaymentMethod: typeof $Enums.PaymentMethod
  */
 export class PrismaClient<
   ClientOptions extends Prisma.PrismaClientOptions = Prisma.PrismaClientOptions,
-  U = 'log' extends keyof ClientOptions ? ClientOptions['log'] extends Array<Prisma.LogLevel | Prisma.LogDefinition> ? Prisma.GetEvents<ClientOptions['log']> : never : never,
+  const U = 'log' extends keyof ClientOptions ? ClientOptions['log'] extends Array<Prisma.LogLevel | Prisma.LogDefinition> ? Prisma.GetEvents<ClientOptions['log']> : never : never,
   ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs
 > {
   [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['other'] }
@@ -168,13 +168,6 @@ export class PrismaClient<
    * Disconnect from the database
    */
   $disconnect(): $Utils.JsPromise<void>;
-
-  /**
-   * Add a middleware
-   * @deprecated since 4.16.0. For new code, prefer client extensions instead.
-   * @see https://pris.ly/d/extensions
-   */
-  $use(cb: Prisma.Middleware): void
 
 /**
    * Executes a prepared raw query and returns the number of affected rows.
@@ -412,8 +405,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 6.5.0
-   * Query Engine version: 173f8d54f8d52e692c7e27e72a88314ec7aeff60
+   * Prisma Client JS version: 6.19.0
+   * Query Engine version: 2ba551f319ab1df4bc874a89965d8b3641056773
    */
   export type PrismaVersion = {
     client: string
@@ -426,6 +419,7 @@ export namespace Prisma {
    */
 
 
+  export import Bytes = runtime.Bytes
   export import JsonObject = runtime.JsonObject
   export import JsonArray = runtime.JsonArray
   export import JsonValue = runtime.JsonValue
@@ -1684,16 +1678,24 @@ export namespace Prisma {
     /**
      * @example
      * ```
-     * // Defaults to stdout
+     * // Shorthand for `emit: 'stdout'`
      * log: ['query', 'info', 'warn', 'error']
      * 
-     * // Emit as events
+     * // Emit as events only
      * log: [
-     *   { emit: 'stdout', level: 'query' },
-     *   { emit: 'stdout', level: 'info' },
-     *   { emit: 'stdout', level: 'warn' }
-     *   { emit: 'stdout', level: 'error' }
+     *   { emit: 'event', level: 'query' },
+     *   { emit: 'event', level: 'info' },
+     *   { emit: 'event', level: 'warn' }
+     *   { emit: 'event', level: 'error' }
      * ]
+     * 
+     * / Emit as events and log to stdout
+     * og: [
+     *  { emit: 'stdout', level: 'query' },
+     *  { emit: 'stdout', level: 'info' },
+     *  { emit: 'stdout', level: 'warn' }
+     *  { emit: 'stdout', level: 'error' }
+     * 
      * ```
      * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/logging#the-log-option).
      */
@@ -1708,6 +1710,10 @@ export namespace Prisma {
       timeout?: number
       isolationLevel?: Prisma.TransactionIsolationLevel
     }
+    /**
+     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
+     */
+    adapter?: runtime.SqlDriverAdapterFactory | null
     /**
      * Global configuration for omitting model fields by default.
      * 
@@ -1745,10 +1751,15 @@ export namespace Prisma {
     emit: 'stdout' | 'event'
   }
 
-  export type GetLogType<T extends LogLevel | LogDefinition> = T extends LogDefinition ? T['emit'] extends 'event' ? T['level'] : never : never
-  export type GetEvents<T extends any> = T extends Array<LogLevel | LogDefinition> ?
-    GetLogType<T[0]> | GetLogType<T[1]> | GetLogType<T[2]> | GetLogType<T[3]>
-    : never
+  export type CheckIsLogLevel<T> = T extends LogLevel ? T : never;
+
+  export type GetLogType<T> = CheckIsLogLevel<
+    T extends LogDefinition ? T['level'] : T
+  >;
+
+  export type GetEvents<T extends any[]> = T extends Array<LogLevel | LogDefinition>
+    ? GetLogType<T[number]>
+    : never;
 
   export type QueryEvent = {
     timestamp: Date
@@ -1789,25 +1800,6 @@ export namespace Prisma {
     | 'findRaw'
     | 'groupBy'
 
-  /**
-   * These options are being passed into the middleware as "params"
-   */
-  export type MiddlewareParams = {
-    model?: ModelName
-    action: PrismaAction
-    args: any
-    dataPath: string[]
-    runInTransaction: boolean
-  }
-
-  /**
-   * The `T` type makes sure, that the `return proceed` is not forgotten in the middleware implementation
-   */
-  export type Middleware<T = any> = (
-    params: MiddlewareParams,
-    next: (params: MiddlewareParams) => $Utils.JsPromise<T>,
-  ) => $Utils.JsPromise<T>
-
   // tested in getLogLevel.test.ts
   export function getLogLevel(log: Array<LogLevel | LogDefinition>): LogLevel | undefined;
 
@@ -1831,15 +1823,15 @@ export namespace Prisma {
 
   export type UserCountOutputType = {
     clients: number
-    products: number
     invoices: number
+    products: number
     RecurringInvoice: number
   }
 
   export type UserCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     clients?: boolean | UserCountOutputTypeCountClientsArgs
-    products?: boolean | UserCountOutputTypeCountProductsArgs
     invoices?: boolean | UserCountOutputTypeCountInvoicesArgs
+    products?: boolean | UserCountOutputTypeCountProductsArgs
     RecurringInvoice?: boolean | UserCountOutputTypeCountRecurringInvoiceArgs
   }
 
@@ -1864,15 +1856,15 @@ export namespace Prisma {
   /**
    * UserCountOutputType without action
    */
-  export type UserCountOutputTypeCountProductsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: ProductWhereInput
+  export type UserCountOutputTypeCountInvoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: InvoiceWhereInput
   }
 
   /**
    * UserCountOutputType without action
    */
-  export type UserCountOutputTypeCountInvoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: InvoiceWhereInput
+  export type UserCountOutputTypeCountProductsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ProductWhereInput
   }
 
   /**
@@ -2110,13 +2102,13 @@ export namespace Prisma {
    */
 
   export type RecurringInvoiceCountOutputType = {
-    items: number
     generated_invoices: number
+    items: number
   }
 
   export type RecurringInvoiceCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    items?: boolean | RecurringInvoiceCountOutputTypeCountItemsArgs
     generated_invoices?: boolean | RecurringInvoiceCountOutputTypeCountGenerated_invoicesArgs
+    items?: boolean | RecurringInvoiceCountOutputTypeCountItemsArgs
   }
 
   // Custom InputTypes
@@ -2133,15 +2125,15 @@ export namespace Prisma {
   /**
    * RecurringInvoiceCountOutputType without action
    */
-  export type RecurringInvoiceCountOutputTypeCountItemsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: RecurringInvoiceItemWhereInput
+  export type RecurringInvoiceCountOutputTypeCountGenerated_invoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: InvoiceWhereInput
   }
 
   /**
    * RecurringInvoiceCountOutputType without action
    */
-  export type RecurringInvoiceCountOutputTypeCountGenerated_invoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: InvoiceWhereInput
+  export type RecurringInvoiceCountOutputTypeCountItemsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: RecurringInvoiceItemWhereInput
   }
 
 
@@ -2427,10 +2419,10 @@ export namespace Prisma {
     deleted_at?: boolean
     verify_token?: boolean
     password_reset_token?: boolean
-    profile?: boolean | User$profileArgs<ExtArgs>
     clients?: boolean | User$clientsArgs<ExtArgs>
-    products?: boolean | User$productsArgs<ExtArgs>
     invoices?: boolean | User$invoicesArgs<ExtArgs>
+    products?: boolean | User$productsArgs<ExtArgs>
+    profile?: boolean | User$profileArgs<ExtArgs>
     RecurringInvoice?: boolean | User$RecurringInvoiceArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["user"]>
@@ -2491,10 +2483,10 @@ export namespace Prisma {
 
   export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"user_id" | "email" | "username" | "password" | "phone" | "first_name" | "last_name" | "avatar" | "is_google" | "verified" | "created_at" | "updated_at" | "deleted_at" | "verify_token" | "password_reset_token", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    profile?: boolean | User$profileArgs<ExtArgs>
     clients?: boolean | User$clientsArgs<ExtArgs>
-    products?: boolean | User$productsArgs<ExtArgs>
     invoices?: boolean | User$invoicesArgs<ExtArgs>
+    products?: boolean | User$productsArgs<ExtArgs>
+    profile?: boolean | User$profileArgs<ExtArgs>
     RecurringInvoice?: boolean | User$RecurringInvoiceArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -2504,10 +2496,10 @@ export namespace Prisma {
   export type $UserPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "User"
     objects: {
-      profile: Prisma.$ProfilePayload<ExtArgs> | null
       clients: Prisma.$ClientPayload<ExtArgs>[]
-      products: Prisma.$ProductPayload<ExtArgs>[]
       invoices: Prisma.$InvoicePayload<ExtArgs>[]
+      products: Prisma.$ProductPayload<ExtArgs>[]
+      profile: Prisma.$ProfilePayload<ExtArgs> | null
       RecurringInvoice: Prisma.$RecurringInvoicePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -2920,10 +2912,10 @@ export namespace Prisma {
    */
   export interface Prisma__UserClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    profile<T extends User$profileArgs<ExtArgs> = {}>(args?: Subset<T, User$profileArgs<ExtArgs>>): Prisma__ProfileClient<$Result.GetResult<Prisma.$ProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     clients<T extends User$clientsArgs<ExtArgs> = {}>(args?: Subset<T, User$clientsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    products<T extends User$productsArgs<ExtArgs> = {}>(args?: Subset<T, User$productsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProductPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     invoices<T extends User$invoicesArgs<ExtArgs> = {}>(args?: Subset<T, User$invoicesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoicePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    products<T extends User$productsArgs<ExtArgs> = {}>(args?: Subset<T, User$productsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ProductPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    profile<T extends User$profileArgs<ExtArgs> = {}>(args?: Subset<T, User$profileArgs<ExtArgs>>): Prisma__ProfileClient<$Result.GetResult<Prisma.$ProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     RecurringInvoice<T extends User$RecurringInvoiceArgs<ExtArgs> = {}>(args?: Subset<T, User$RecurringInvoiceArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$RecurringInvoicePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2952,7 +2944,7 @@ export namespace Prisma {
 
   /**
    * Fields of the User model
-   */ 
+   */
   interface UserFieldRefs {
     readonly user_id: FieldRef<"User", 'Int'>
     readonly email: FieldRef<"User", 'String'>
@@ -3357,25 +3349,6 @@ export namespace Prisma {
   }
 
   /**
-   * User.profile
-   */
-  export type User$profileArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Profile
-     */
-    select?: ProfileSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Profile
-     */
-    omit?: ProfileOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: ProfileInclude<ExtArgs> | null
-    where?: ProfileWhereInput
-  }
-
-  /**
    * User.clients
    */
   export type User$clientsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3397,6 +3370,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: ClientScalarFieldEnum | ClientScalarFieldEnum[]
+  }
+
+  /**
+   * User.invoices
+   */
+  export type User$invoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Invoice
+     */
+    select?: InvoiceSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Invoice
+     */
+    omit?: InvoiceOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InvoiceInclude<ExtArgs> | null
+    where?: InvoiceWhereInput
+    orderBy?: InvoiceOrderByWithRelationInput | InvoiceOrderByWithRelationInput[]
+    cursor?: InvoiceWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: InvoiceScalarFieldEnum | InvoiceScalarFieldEnum[]
   }
 
   /**
@@ -3424,27 +3421,22 @@ export namespace Prisma {
   }
 
   /**
-   * User.invoices
+   * User.profile
    */
-  export type User$invoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+  export type User$profileArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     /**
-     * Select specific fields to fetch from the Invoice
+     * Select specific fields to fetch from the Profile
      */
-    select?: InvoiceSelect<ExtArgs> | null
+    select?: ProfileSelect<ExtArgs> | null
     /**
-     * Omit specific fields from the Invoice
+     * Omit specific fields from the Profile
      */
-    omit?: InvoiceOmit<ExtArgs> | null
+    omit?: ProfileOmit<ExtArgs> | null
     /**
      * Choose, which related nodes to fetch as well
      */
-    include?: InvoiceInclude<ExtArgs> | null
-    where?: InvoiceWhereInput
-    orderBy?: InvoiceOrderByWithRelationInput | InvoiceOrderByWithRelationInput[]
-    cursor?: InvoiceWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: InvoiceScalarFieldEnum | InvoiceScalarFieldEnum[]
+    include?: ProfileInclude<ExtArgs> | null
+    where?: ProfileWhereInput
   }
 
   /**
@@ -4271,7 +4263,7 @@ export namespace Prisma {
 
   /**
    * Fields of the Profile model
-   */ 
+   */
   interface ProfileFieldRefs {
     readonly profile_id: FieldRef<"Profile", 'Int'>
     readonly user_id: FieldRef<"Profile", 'Int'>
@@ -5465,7 +5457,7 @@ export namespace Prisma {
 
   /**
    * Fields of the BankAccount model
-   */ 
+   */
   interface BankAccountFieldRefs {
     readonly id: FieldRef<"BankAccount", 'Int'>
     readonly profile_id: FieldRef<"BankAccount", 'Int'>
@@ -6630,7 +6622,7 @@ export namespace Prisma {
 
   /**
    * Fields of the EWallet model
-   */ 
+   */
   interface EWalletFieldRefs {
     readonly id: FieldRef<"EWallet", 'Int'>
     readonly profile_id: FieldRef<"EWallet", 'Int'>
@@ -7895,7 +7887,7 @@ export namespace Prisma {
 
   /**
    * Fields of the Client model
-   */ 
+   */
   interface ClientFieldRefs {
     readonly client_id: FieldRef<"Client", 'Int'>
     readonly user_id: FieldRef<"Client", 'Int'>
@@ -8641,8 +8633,8 @@ export namespace Prisma {
     created_at?: boolean
     updated_at?: boolean
     deleted_at?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     invoiceItems?: boolean | Product$invoiceItemsArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
     RecurringInvoiceItem?: boolean | Product$RecurringInvoiceItemArgs<ExtArgs>
     _count?: boolean | ProductCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["product"]>
@@ -8696,8 +8688,8 @@ export namespace Prisma {
 
   export type ProductOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"product_id" | "user_id" | "name" | "description" | "price" | "unit" | "tax_rate" | "category" | "image" | "created_at" | "updated_at" | "deleted_at", ExtArgs["result"]["product"]>
   export type ProductInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     invoiceItems?: boolean | Product$invoiceItemsArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
     RecurringInvoiceItem?: boolean | Product$RecurringInvoiceItemArgs<ExtArgs>
     _count?: boolean | ProductCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -8711,8 +8703,8 @@ export namespace Prisma {
   export type $ProductPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Product"
     objects: {
-      user: Prisma.$UserPayload<ExtArgs>
       invoiceItems: Prisma.$InvoiceItemPayload<ExtArgs>[]
+      user: Prisma.$UserPayload<ExtArgs>
       RecurringInvoiceItem: Prisma.$RecurringInvoiceItemPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -9122,8 +9114,8 @@ export namespace Prisma {
    */
   export interface Prisma__ProductClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     invoiceItems<T extends Product$invoiceItemsArgs<ExtArgs> = {}>(args?: Subset<T, Product$invoiceItemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoiceItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     RecurringInvoiceItem<T extends Product$RecurringInvoiceItemArgs<ExtArgs> = {}>(args?: Subset<T, Product$RecurringInvoiceItemArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$RecurringInvoiceItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -9152,7 +9144,7 @@ export namespace Prisma {
 
   /**
    * Fields of the Product model
-   */ 
+   */
   interface ProductFieldRefs {
     readonly product_id: FieldRef<"Product", 'Int'>
     readonly user_id: FieldRef<"Product", 'Int'>
@@ -9950,11 +9942,11 @@ export namespace Prisma {
     updated_at?: boolean
     deleted_at?: boolean
     source_recurring_id?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
     items?: boolean | Invoice$itemsArgs<ExtArgs>
     payments?: boolean | Invoice$paymentsArgs<ExtArgs>
-    source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
     _count?: boolean | InvoiceCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoice"]>
 
@@ -9976,9 +9968,9 @@ export namespace Prisma {
     updated_at?: boolean
     deleted_at?: boolean
     source_recurring_id?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
     source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoice"]>
 
   export type InvoiceSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -9999,9 +9991,9 @@ export namespace Prisma {
     updated_at?: boolean
     deleted_at?: boolean
     source_recurring_id?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
     source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["invoice"]>
 
   export type InvoiceSelectScalar = {
@@ -10026,32 +10018,32 @@ export namespace Prisma {
 
   export type InvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"invoice_id" | "user_id" | "client_id" | "invoice_number" | "issue_date" | "due_date" | "status" | "subtotal" | "tax_amount" | "discount_amount" | "total_amount" | "notes" | "terms" | "created_at" | "updated_at" | "deleted_at" | "source_recurring_id", ExtArgs["result"]["invoice"]>
   export type InvoiceInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
     items?: boolean | Invoice$itemsArgs<ExtArgs>
     payments?: boolean | Invoice$paymentsArgs<ExtArgs>
-    source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
     _count?: boolean | InvoiceCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InvoiceIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
     source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }
   export type InvoiceIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
     source_recurring?: boolean | Invoice$source_recurringArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }
 
   export type $InvoicePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Invoice"
     objects: {
-      user: Prisma.$UserPayload<ExtArgs>
       client: Prisma.$ClientPayload<ExtArgs>
+      source_recurring: Prisma.$RecurringInvoicePayload<ExtArgs> | null
+      user: Prisma.$UserPayload<ExtArgs>
       items: Prisma.$InvoiceItemPayload<ExtArgs>[]
       payments: Prisma.$PaymentPayload<ExtArgs>[]
-      source_recurring: Prisma.$RecurringInvoicePayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       invoice_id: number
@@ -10465,11 +10457,11 @@ export namespace Prisma {
    */
   export interface Prisma__InvoiceClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     client<T extends ClientDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ClientDefaultArgs<ExtArgs>>): Prisma__ClientClient<$Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    source_recurring<T extends Invoice$source_recurringArgs<ExtArgs> = {}>(args?: Subset<T, Invoice$source_recurringArgs<ExtArgs>>): Prisma__RecurringInvoiceClient<$Result.GetResult<Prisma.$RecurringInvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     items<T extends Invoice$itemsArgs<ExtArgs> = {}>(args?: Subset<T, Invoice$itemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoiceItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     payments<T extends Invoice$paymentsArgs<ExtArgs> = {}>(args?: Subset<T, Invoice$paymentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    source_recurring<T extends Invoice$source_recurringArgs<ExtArgs> = {}>(args?: Subset<T, Invoice$source_recurringArgs<ExtArgs>>): Prisma__RecurringInvoiceClient<$Result.GetResult<Prisma.$RecurringInvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -10497,7 +10489,7 @@ export namespace Prisma {
 
   /**
    * Fields of the Invoice model
-   */ 
+   */
   interface InvoiceFieldRefs {
     readonly invoice_id: FieldRef<"Invoice", 'Int'>
     readonly user_id: FieldRef<"Invoice", 'Int'>
@@ -10912,6 +10904,25 @@ export namespace Prisma {
   }
 
   /**
+   * Invoice.source_recurring
+   */
+  export type Invoice$source_recurringArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the RecurringInvoice
+     */
+    select?: RecurringInvoiceSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the RecurringInvoice
+     */
+    omit?: RecurringInvoiceOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: RecurringInvoiceInclude<ExtArgs> | null
+    where?: RecurringInvoiceWhereInput
+  }
+
+  /**
    * Invoice.items
    */
   export type Invoice$itemsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -10957,25 +10968,6 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: PaymentScalarFieldEnum | PaymentScalarFieldEnum[]
-  }
-
-  /**
-   * Invoice.source_recurring
-   */
-  export type Invoice$source_recurringArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the RecurringInvoice
-     */
-    select?: RecurringInvoiceSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the RecurringInvoice
-     */
-    omit?: RecurringInvoiceOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: RecurringInvoiceInclude<ExtArgs> | null
-    where?: RecurringInvoiceWhereInput
   }
 
   /**
@@ -11752,7 +11744,7 @@ export namespace Prisma {
 
   /**
    * Fields of the InvoiceItem model
-   */ 
+   */
   interface InvoiceItemFieldRefs {
     readonly item_id: FieldRef<"InvoiceItem", 'Int'>
     readonly invoice_id: FieldRef<"InvoiceItem", 'Int'>
@@ -12431,9 +12423,9 @@ export namespace Prisma {
     created_at?: boolean
     eWalletId?: boolean
     bankAccountId?: boolean
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -12447,9 +12439,9 @@ export namespace Prisma {
     created_at?: boolean
     eWalletId?: boolean
     bankAccountId?: boolean
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -12463,9 +12455,9 @@ export namespace Prisma {
     created_at?: boolean
     eWalletId?: boolean
     bankAccountId?: boolean
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectScalar = {
@@ -12483,27 +12475,27 @@ export namespace Prisma {
 
   export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"payment_id" | "invoice_id" | "amount" | "payment_date" | "payment_method" | "reference" | "notes" | "created_at" | "eWalletId" | "bankAccountId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }
   export type PaymentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }
   export type PaymentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
-    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
     BankAccount?: boolean | Payment$BankAccountArgs<ExtArgs>
+    EWallet?: boolean | Payment$EWalletArgs<ExtArgs>
+    invoice?: boolean | InvoiceDefaultArgs<ExtArgs>
   }
 
   export type $PaymentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Payment"
     objects: {
-      invoice: Prisma.$InvoicePayload<ExtArgs>
-      EWallet: Prisma.$EWalletPayload<ExtArgs> | null
       BankAccount: Prisma.$BankAccountPayload<ExtArgs> | null
+      EWallet: Prisma.$EWalletPayload<ExtArgs> | null
+      invoice: Prisma.$InvoicePayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       payment_id: number
@@ -12910,9 +12902,9 @@ export namespace Prisma {
    */
   export interface Prisma__PaymentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    invoice<T extends InvoiceDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InvoiceDefaultArgs<ExtArgs>>): Prisma__InvoiceClient<$Result.GetResult<Prisma.$InvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    EWallet<T extends Payment$EWalletArgs<ExtArgs> = {}>(args?: Subset<T, Payment$EWalletArgs<ExtArgs>>): Prisma__EWalletClient<$Result.GetResult<Prisma.$EWalletPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     BankAccount<T extends Payment$BankAccountArgs<ExtArgs> = {}>(args?: Subset<T, Payment$BankAccountArgs<ExtArgs>>): Prisma__BankAccountClient<$Result.GetResult<Prisma.$BankAccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    EWallet<T extends Payment$EWalletArgs<ExtArgs> = {}>(args?: Subset<T, Payment$EWalletArgs<ExtArgs>>): Prisma__EWalletClient<$Result.GetResult<Prisma.$EWalletPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    invoice<T extends InvoiceDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InvoiceDefaultArgs<ExtArgs>>): Prisma__InvoiceClient<$Result.GetResult<Prisma.$InvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -12940,7 +12932,7 @@ export namespace Prisma {
 
   /**
    * Fields of the Payment model
-   */ 
+   */
   interface PaymentFieldRefs {
     readonly payment_id: FieldRef<"Payment", 'Int'>
     readonly invoice_id: FieldRef<"Payment", 'Int'>
@@ -13348,25 +13340,6 @@ export namespace Prisma {
   }
 
   /**
-   * Payment.EWallet
-   */
-  export type Payment$EWalletArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the EWallet
-     */
-    select?: EWalletSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the EWallet
-     */
-    omit?: EWalletOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: EWalletInclude<ExtArgs> | null
-    where?: EWalletWhereInput
-  }
-
-  /**
    * Payment.BankAccount
    */
   export type Payment$BankAccountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -13383,6 +13356,25 @@ export namespace Prisma {
      */
     include?: BankAccountInclude<ExtArgs> | null
     where?: BankAccountWhereInput
+  }
+
+  /**
+   * Payment.EWallet
+   */
+  export type Payment$EWalletArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the EWallet
+     */
+    select?: EWalletSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the EWallet
+     */
+    omit?: EWalletOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EWalletInclude<ExtArgs> | null
+    where?: EWalletWhereInput
   }
 
   /**
@@ -13658,10 +13650,10 @@ export namespace Prisma {
     created_at?: boolean
     updated_at?: boolean
     deleted_at?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
-    client?: boolean | ClientDefaultArgs<ExtArgs>
-    items?: boolean | RecurringInvoice$itemsArgs<ExtArgs>
     generated_invoices?: boolean | RecurringInvoice$generated_invoicesArgs<ExtArgs>
+    client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
+    items?: boolean | RecurringInvoice$itemsArgs<ExtArgs>
     _count?: boolean | RecurringInvoiceCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoice"]>
 
@@ -13677,8 +13669,8 @@ export namespace Prisma {
     created_at?: boolean
     updated_at?: boolean
     deleted_at?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoice"]>
 
   export type RecurringInvoiceSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -13693,8 +13685,8 @@ export namespace Prisma {
     created_at?: boolean
     updated_at?: boolean
     deleted_at?: boolean
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoice"]>
 
   export type RecurringInvoiceSelectScalar = {
@@ -13713,28 +13705,28 @@ export namespace Prisma {
 
   export type RecurringInvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "user_id" | "client_id" | "pattern" | "next_invoice_date" | "start_date" | "end_date" | "is_active" | "created_at" | "updated_at" | "deleted_at", ExtArgs["result"]["recurringInvoice"]>
   export type RecurringInvoiceInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
-    client?: boolean | ClientDefaultArgs<ExtArgs>
-    items?: boolean | RecurringInvoice$itemsArgs<ExtArgs>
     generated_invoices?: boolean | RecurringInvoice$generated_invoicesArgs<ExtArgs>
+    client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
+    items?: boolean | RecurringInvoice$itemsArgs<ExtArgs>
     _count?: boolean | RecurringInvoiceCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type RecurringInvoiceIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }
   export type RecurringInvoiceIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    user?: boolean | UserDefaultArgs<ExtArgs>
     client?: boolean | ClientDefaultArgs<ExtArgs>
+    user?: boolean | UserDefaultArgs<ExtArgs>
   }
 
   export type $RecurringInvoicePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "RecurringInvoice"
     objects: {
-      user: Prisma.$UserPayload<ExtArgs>
-      client: Prisma.$ClientPayload<ExtArgs>
-      items: Prisma.$RecurringInvoiceItemPayload<ExtArgs>[]
       generated_invoices: Prisma.$InvoicePayload<ExtArgs>[]
+      client: Prisma.$ClientPayload<ExtArgs>
+      user: Prisma.$UserPayload<ExtArgs>
+      items: Prisma.$RecurringInvoiceItemPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: number
@@ -14142,10 +14134,10 @@ export namespace Prisma {
    */
   export interface Prisma__RecurringInvoiceClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    client<T extends ClientDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ClientDefaultArgs<ExtArgs>>): Prisma__ClientClient<$Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    items<T extends RecurringInvoice$itemsArgs<ExtArgs> = {}>(args?: Subset<T, RecurringInvoice$itemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$RecurringInvoiceItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     generated_invoices<T extends RecurringInvoice$generated_invoicesArgs<ExtArgs> = {}>(args?: Subset<T, RecurringInvoice$generated_invoicesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoicePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    client<T extends ClientDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ClientDefaultArgs<ExtArgs>>): Prisma__ClientClient<$Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    items<T extends RecurringInvoice$itemsArgs<ExtArgs> = {}>(args?: Subset<T, RecurringInvoice$itemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$RecurringInvoiceItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -14173,7 +14165,7 @@ export namespace Prisma {
 
   /**
    * Fields of the RecurringInvoice model
-   */ 
+   */
   interface RecurringInvoiceFieldRefs {
     readonly id: FieldRef<"RecurringInvoice", 'Int'>
     readonly user_id: FieldRef<"RecurringInvoice", 'Int'>
@@ -14582,30 +14574,6 @@ export namespace Prisma {
   }
 
   /**
-   * RecurringInvoice.items
-   */
-  export type RecurringInvoice$itemsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the RecurringInvoiceItem
-     */
-    select?: RecurringInvoiceItemSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the RecurringInvoiceItem
-     */
-    omit?: RecurringInvoiceItemOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: RecurringInvoiceItemInclude<ExtArgs> | null
-    where?: RecurringInvoiceItemWhereInput
-    orderBy?: RecurringInvoiceItemOrderByWithRelationInput | RecurringInvoiceItemOrderByWithRelationInput[]
-    cursor?: RecurringInvoiceItemWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: RecurringInvoiceItemScalarFieldEnum | RecurringInvoiceItemScalarFieldEnum[]
-  }
-
-  /**
    * RecurringInvoice.generated_invoices
    */
   export type RecurringInvoice$generated_invoicesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -14627,6 +14595,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: InvoiceScalarFieldEnum | InvoiceScalarFieldEnum[]
+  }
+
+  /**
+   * RecurringInvoice.items
+   */
+  export type RecurringInvoice$itemsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the RecurringInvoiceItem
+     */
+    select?: RecurringInvoiceItemSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the RecurringInvoiceItem
+     */
+    omit?: RecurringInvoiceItemOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: RecurringInvoiceItemInclude<ExtArgs> | null
+    where?: RecurringInvoiceItemWhereInput
+    orderBy?: RecurringInvoiceItemOrderByWithRelationInput | RecurringInvoiceItemOrderByWithRelationInput[]
+    cursor?: RecurringInvoiceItemWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: RecurringInvoiceItemScalarFieldEnum | RecurringInvoiceItemScalarFieldEnum[]
   }
 
   /**
@@ -14882,8 +14874,8 @@ export namespace Prisma {
     quantity?: boolean
     unit_price?: boolean
     tax_rate?: boolean
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoiceItem"]>
 
   export type RecurringInvoiceItemSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -14894,8 +14886,8 @@ export namespace Prisma {
     quantity?: boolean
     unit_price?: boolean
     tax_rate?: boolean
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoiceItem"]>
 
   export type RecurringInvoiceItemSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -14906,8 +14898,8 @@ export namespace Prisma {
     quantity?: boolean
     unit_price?: boolean
     tax_rate?: boolean
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["recurringInvoiceItem"]>
 
   export type RecurringInvoiceItemSelectScalar = {
@@ -14922,23 +14914,23 @@ export namespace Prisma {
 
   export type RecurringInvoiceItemOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "recurring_id" | "product_id" | "description" | "quantity" | "unit_price" | "tax_rate", ExtArgs["result"]["recurringInvoiceItem"]>
   export type RecurringInvoiceItemInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }
   export type RecurringInvoiceItemIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }
   export type RecurringInvoiceItemIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
     product?: boolean | ProductDefaultArgs<ExtArgs>
+    recurring_invoice?: boolean | RecurringInvoiceDefaultArgs<ExtArgs>
   }
 
   export type $RecurringInvoiceItemPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "RecurringInvoiceItem"
     objects: {
-      recurring_invoice: Prisma.$RecurringInvoicePayload<ExtArgs>
       product: Prisma.$ProductPayload<ExtArgs>
+      recurring_invoice: Prisma.$RecurringInvoicePayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       id: number
@@ -15342,8 +15334,8 @@ export namespace Prisma {
    */
   export interface Prisma__RecurringInvoiceItemClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    recurring_invoice<T extends RecurringInvoiceDefaultArgs<ExtArgs> = {}>(args?: Subset<T, RecurringInvoiceDefaultArgs<ExtArgs>>): Prisma__RecurringInvoiceClient<$Result.GetResult<Prisma.$RecurringInvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     product<T extends ProductDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ProductDefaultArgs<ExtArgs>>): Prisma__ProductClient<$Result.GetResult<Prisma.$ProductPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    recurring_invoice<T extends RecurringInvoiceDefaultArgs<ExtArgs> = {}>(args?: Subset<T, RecurringInvoiceDefaultArgs<ExtArgs>>): Prisma__RecurringInvoiceClient<$Result.GetResult<Prisma.$RecurringInvoicePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -15371,7 +15363,7 @@ export namespace Prisma {
 
   /**
    * Fields of the RecurringInvoiceItem model
-   */ 
+   */
   interface RecurringInvoiceItemFieldRefs {
     readonly id: FieldRef<"RecurringInvoiceItem", 'Int'>
     readonly recurring_id: FieldRef<"RecurringInvoiceItem", 'Int'>
@@ -16025,7 +16017,7 @@ export namespace Prisma {
 
 
   /**
-   * Field references 
+   * Field references
    */
 
 
@@ -16170,10 +16162,10 @@ export namespace Prisma {
     deleted_at?: DateTimeNullableFilter<"User"> | Date | string | null
     verify_token?: StringNullableFilter<"User"> | string | null
     password_reset_token?: StringNullableFilter<"User"> | string | null
-    profile?: XOR<ProfileNullableScalarRelationFilter, ProfileWhereInput> | null
     clients?: ClientListRelationFilter
-    products?: ProductListRelationFilter
     invoices?: InvoiceListRelationFilter
+    products?: ProductListRelationFilter
+    profile?: XOR<ProfileNullableScalarRelationFilter, ProfileWhereInput> | null
     RecurringInvoice?: RecurringInvoiceListRelationFilter
   }
 
@@ -16193,10 +16185,10 @@ export namespace Prisma {
     deleted_at?: SortOrderInput | SortOrder
     verify_token?: SortOrderInput | SortOrder
     password_reset_token?: SortOrderInput | SortOrder
-    profile?: ProfileOrderByWithRelationInput
     clients?: ClientOrderByRelationAggregateInput
-    products?: ProductOrderByRelationAggregateInput
     invoices?: InvoiceOrderByRelationAggregateInput
+    products?: ProductOrderByRelationAggregateInput
+    profile?: ProfileOrderByWithRelationInput
     RecurringInvoice?: RecurringInvoiceOrderByRelationAggregateInput
   }
 
@@ -16219,10 +16211,10 @@ export namespace Prisma {
     deleted_at?: DateTimeNullableFilter<"User"> | Date | string | null
     verify_token?: StringNullableFilter<"User"> | string | null
     password_reset_token?: StringNullableFilter<"User"> | string | null
-    profile?: XOR<ProfileNullableScalarRelationFilter, ProfileWhereInput> | null
     clients?: ClientListRelationFilter
-    products?: ProductListRelationFilter
     invoices?: InvoiceListRelationFilter
+    products?: ProductListRelationFilter
+    profile?: XOR<ProfileNullableScalarRelationFilter, ProfileWhereInput> | null
     RecurringInvoice?: RecurringInvoiceListRelationFilter
   }, "user_id" | "email" | "phone">
 
@@ -16657,8 +16649,8 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"Product"> | Date | string
     updated_at?: DateTimeFilter<"Product"> | Date | string
     deleted_at?: DateTimeNullableFilter<"Product"> | Date | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     invoiceItems?: InvoiceItemListRelationFilter
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     RecurringInvoiceItem?: RecurringInvoiceItemListRelationFilter
   }
 
@@ -16675,8 +16667,8 @@ export namespace Prisma {
     created_at?: SortOrder
     updated_at?: SortOrder
     deleted_at?: SortOrderInput | SortOrder
-    user?: UserOrderByWithRelationInput
     invoiceItems?: InvoiceItemOrderByRelationAggregateInput
+    user?: UserOrderByWithRelationInput
     RecurringInvoiceItem?: RecurringInvoiceItemOrderByRelationAggregateInput
   }
 
@@ -16696,8 +16688,8 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"Product"> | Date | string
     updated_at?: DateTimeFilter<"Product"> | Date | string
     deleted_at?: DateTimeNullableFilter<"Product"> | Date | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     invoiceItems?: InvoiceItemListRelationFilter
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     RecurringInvoiceItem?: RecurringInvoiceItemListRelationFilter
   }, "product_id">
 
@@ -16760,11 +16752,11 @@ export namespace Prisma {
     updated_at?: DateTimeFilter<"Invoice"> | Date | string
     deleted_at?: DateTimeNullableFilter<"Invoice"> | Date | string | null
     source_recurring_id?: IntNullableFilter<"Invoice"> | number | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
+    source_recurring?: XOR<RecurringInvoiceNullableScalarRelationFilter, RecurringInvoiceWhereInput> | null
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     items?: InvoiceItemListRelationFilter
     payments?: PaymentListRelationFilter
-    source_recurring?: XOR<RecurringInvoiceNullableScalarRelationFilter, RecurringInvoiceWhereInput> | null
   }
 
   export type InvoiceOrderByWithRelationInput = {
@@ -16785,11 +16777,11 @@ export namespace Prisma {
     updated_at?: SortOrder
     deleted_at?: SortOrderInput | SortOrder
     source_recurring_id?: SortOrderInput | SortOrder
-    user?: UserOrderByWithRelationInput
     client?: ClientOrderByWithRelationInput
+    source_recurring?: RecurringInvoiceOrderByWithRelationInput
+    user?: UserOrderByWithRelationInput
     items?: InvoiceItemOrderByRelationAggregateInput
     payments?: PaymentOrderByRelationAggregateInput
-    source_recurring?: RecurringInvoiceOrderByWithRelationInput
   }
 
   export type InvoiceWhereUniqueInput = Prisma.AtLeast<{
@@ -16813,11 +16805,11 @@ export namespace Prisma {
     updated_at?: DateTimeFilter<"Invoice"> | Date | string
     deleted_at?: DateTimeNullableFilter<"Invoice"> | Date | string | null
     source_recurring_id?: IntNullableFilter<"Invoice"> | number | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
+    source_recurring?: XOR<RecurringInvoiceNullableScalarRelationFilter, RecurringInvoiceWhereInput> | null
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
     items?: InvoiceItemListRelationFilter
     payments?: PaymentListRelationFilter
-    source_recurring?: XOR<RecurringInvoiceNullableScalarRelationFilter, RecurringInvoiceWhereInput> | null
   }, "invoice_id" | "invoice_number">
 
   export type InvoiceOrderByWithAggregationInput = {
@@ -16962,9 +16954,9 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"Payment"> | Date | string
     eWalletId?: IntNullableFilter<"Payment"> | number | null
     bankAccountId?: IntNullableFilter<"Payment"> | number | null
-    invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
-    EWallet?: XOR<EWalletNullableScalarRelationFilter, EWalletWhereInput> | null
     BankAccount?: XOR<BankAccountNullableScalarRelationFilter, BankAccountWhereInput> | null
+    EWallet?: XOR<EWalletNullableScalarRelationFilter, EWalletWhereInput> | null
+    invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
   }
 
   export type PaymentOrderByWithRelationInput = {
@@ -16978,9 +16970,9 @@ export namespace Prisma {
     created_at?: SortOrder
     eWalletId?: SortOrderInput | SortOrder
     bankAccountId?: SortOrderInput | SortOrder
-    invoice?: InvoiceOrderByWithRelationInput
-    EWallet?: EWalletOrderByWithRelationInput
     BankAccount?: BankAccountOrderByWithRelationInput
+    EWallet?: EWalletOrderByWithRelationInput
+    invoice?: InvoiceOrderByWithRelationInput
   }
 
   export type PaymentWhereUniqueInput = Prisma.AtLeast<{
@@ -16997,9 +16989,9 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"Payment"> | Date | string
     eWalletId?: IntNullableFilter<"Payment"> | number | null
     bankAccountId?: IntNullableFilter<"Payment"> | number | null
-    invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
-    EWallet?: XOR<EWalletNullableScalarRelationFilter, EWalletWhereInput> | null
     BankAccount?: XOR<BankAccountNullableScalarRelationFilter, BankAccountWhereInput> | null
+    EWallet?: XOR<EWalletNullableScalarRelationFilter, EWalletWhereInput> | null
+    invoice?: XOR<InvoiceScalarRelationFilter, InvoiceWhereInput>
   }, "payment_id">
 
   export type PaymentOrderByWithAggregationInput = {
@@ -17051,10 +17043,10 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"RecurringInvoice"> | Date | string
     updated_at?: DateTimeFilter<"RecurringInvoice"> | Date | string
     deleted_at?: DateTimeNullableFilter<"RecurringInvoice"> | Date | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
-    client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
-    items?: RecurringInvoiceItemListRelationFilter
     generated_invoices?: InvoiceListRelationFilter
+    client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
+    items?: RecurringInvoiceItemListRelationFilter
   }
 
   export type RecurringInvoiceOrderByWithRelationInput = {
@@ -17069,10 +17061,10 @@ export namespace Prisma {
     created_at?: SortOrder
     updated_at?: SortOrder
     deleted_at?: SortOrderInput | SortOrder
-    user?: UserOrderByWithRelationInput
-    client?: ClientOrderByWithRelationInput
-    items?: RecurringInvoiceItemOrderByRelationAggregateInput
     generated_invoices?: InvoiceOrderByRelationAggregateInput
+    client?: ClientOrderByWithRelationInput
+    user?: UserOrderByWithRelationInput
+    items?: RecurringInvoiceItemOrderByRelationAggregateInput
   }
 
   export type RecurringInvoiceWhereUniqueInput = Prisma.AtLeast<{
@@ -17090,10 +17082,10 @@ export namespace Prisma {
     created_at?: DateTimeFilter<"RecurringInvoice"> | Date | string
     updated_at?: DateTimeFilter<"RecurringInvoice"> | Date | string
     deleted_at?: DateTimeNullableFilter<"RecurringInvoice"> | Date | string | null
-    user?: XOR<UserScalarRelationFilter, UserWhereInput>
-    client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
-    items?: RecurringInvoiceItemListRelationFilter
     generated_invoices?: InvoiceListRelationFilter
+    client?: XOR<ClientScalarRelationFilter, ClientWhereInput>
+    user?: XOR<UserScalarRelationFilter, UserWhereInput>
+    items?: RecurringInvoiceItemListRelationFilter
   }, "id">
 
   export type RecurringInvoiceOrderByWithAggregationInput = {
@@ -17143,8 +17135,8 @@ export namespace Prisma {
     quantity?: IntFilter<"RecurringInvoiceItem"> | number
     unit_price?: DecimalFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string
     tax_rate?: DecimalNullableFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string | null
-    recurring_invoice?: XOR<RecurringInvoiceScalarRelationFilter, RecurringInvoiceWhereInput>
     product?: XOR<ProductScalarRelationFilter, ProductWhereInput>
+    recurring_invoice?: XOR<RecurringInvoiceScalarRelationFilter, RecurringInvoiceWhereInput>
   }
 
   export type RecurringInvoiceItemOrderByWithRelationInput = {
@@ -17155,8 +17147,8 @@ export namespace Prisma {
     quantity?: SortOrder
     unit_price?: SortOrder
     tax_rate?: SortOrderInput | SortOrder
-    recurring_invoice?: RecurringInvoiceOrderByWithRelationInput
     product?: ProductOrderByWithRelationInput
+    recurring_invoice?: RecurringInvoiceOrderByWithRelationInput
   }
 
   export type RecurringInvoiceItemWhereUniqueInput = Prisma.AtLeast<{
@@ -17170,8 +17162,8 @@ export namespace Prisma {
     quantity?: IntFilter<"RecurringInvoiceItem"> | number
     unit_price?: DecimalFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string
     tax_rate?: DecimalNullableFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string | null
-    recurring_invoice?: XOR<RecurringInvoiceScalarRelationFilter, RecurringInvoiceWhereInput>
     product?: XOR<ProductScalarRelationFilter, ProductWhereInput>
+    recurring_invoice?: XOR<RecurringInvoiceScalarRelationFilter, RecurringInvoiceWhereInput>
   }, "id">
 
   export type RecurringInvoiceItemOrderByWithAggregationInput = {
@@ -17217,10 +17209,10 @@ export namespace Prisma {
     deleted_at?: Date | string | null
     verify_token?: string | null
     password_reset_token?: string | null
-    profile?: ProfileCreateNestedOneWithoutUserInput
     clients?: ClientCreateNestedManyWithoutUserInput
-    products?: ProductCreateNestedManyWithoutUserInput
     invoices?: InvoiceCreateNestedManyWithoutUserInput
+    products?: ProductCreateNestedManyWithoutUserInput
+    profile?: ProfileCreateNestedOneWithoutUserInput
     RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
   }
 
@@ -17240,10 +17232,10 @@ export namespace Prisma {
     deleted_at?: Date | string | null
     verify_token?: string | null
     password_reset_token?: string | null
-    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
     clients?: ClientUncheckedCreateNestedManyWithoutUserInput
-    products?: ProductUncheckedCreateNestedManyWithoutUserInput
     invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    products?: ProductUncheckedCreateNestedManyWithoutUserInput
+    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
     RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
   }
 
@@ -17262,10 +17254,10 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUpdateOneWithoutUserNestedInput
     clients?: ClientUpdateManyWithoutUserNestedInput
-    products?: ProductUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUpdateManyWithoutUserNestedInput
+    products?: ProductUpdateManyWithoutUserNestedInput
+    profile?: ProfileUpdateOneWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
   }
 
@@ -17285,10 +17277,10 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
     clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
-    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
+    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
   }
 
@@ -17763,8 +17755,8 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutProductsInput
     invoiceItems?: InvoiceItemCreateNestedManyWithoutProductInput
+    user: UserCreateNestedOneWithoutProductsInput
     RecurringInvoiceItem?: RecurringInvoiceItemCreateNestedManyWithoutProductInput
   }
 
@@ -17796,8 +17788,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutProductsNestedInput
     invoiceItems?: InvoiceItemUpdateManyWithoutProductNestedInput
+    user?: UserUpdateOneRequiredWithoutProductsNestedInput
     RecurringInvoiceItem?: RecurringInvoiceItemUpdateManyWithoutProductNestedInput
   }
 
@@ -17875,11 +17867,11 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutInvoicesInput
     client: ClientCreateNestedOneWithoutInvoicesInput
+    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    user: UserCreateNestedOneWithoutInvoicesInput
     items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
     payments?: PaymentCreateNestedManyWithoutInvoiceInput
-    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
   }
 
   export type InvoiceUncheckedCreateInput = {
@@ -17918,11 +17910,11 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
+    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
+    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
     payments?: PaymentUpdateManyWithoutInvoiceNestedInput
-    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
   }
 
   export type InvoiceUncheckedUpdateInput = {
@@ -18089,9 +18081,9 @@ export namespace Prisma {
     reference?: string | null
     notes?: string | null
     created_at?: Date | string
-    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
-    EWallet?: EWalletCreateNestedOneWithoutPaymentsInput
     BankAccount?: BankAccountCreateNestedOneWithoutPaymentsInput
+    EWallet?: EWalletCreateNestedOneWithoutPaymentsInput
+    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateInput = {
@@ -18114,9 +18106,9 @@ export namespace Prisma {
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
-    EWallet?: EWalletUpdateOneWithoutPaymentsNestedInput
     BankAccount?: BankAccountUpdateOneWithoutPaymentsNestedInput
+    EWallet?: EWalletUpdateOneWithoutPaymentsNestedInput
+    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateInput = {
@@ -18176,10 +18168,10 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutRecurringInvoiceInput
-    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
-    items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
     generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
+    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
+    user: UserCreateNestedOneWithoutRecurringInvoiceInput
+    items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
   }
 
   export type RecurringInvoiceUncheckedCreateInput = {
@@ -18194,8 +18186,8 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
     generated_invoices?: InvoiceUncheckedCreateNestedManyWithoutSource_recurringInput
+    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
   }
 
   export type RecurringInvoiceUpdateInput = {
@@ -18207,10 +18199,10 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
     generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
+    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+    items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
   }
 
   export type RecurringInvoiceUncheckedUpdateInput = {
@@ -18225,8 +18217,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
     generated_invoices?: InvoiceUncheckedUpdateManyWithoutSource_recurringNestedInput
+    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
   }
 
   export type RecurringInvoiceCreateManyInput = {
@@ -18273,8 +18265,8 @@ export namespace Prisma {
     quantity: number
     unit_price: Decimal | DecimalJsLike | number | string
     tax_rate?: Decimal | DecimalJsLike | number | string | null
-    recurring_invoice: RecurringInvoiceCreateNestedOneWithoutItemsInput
     product: ProductCreateNestedOneWithoutRecurringInvoiceItemInput
+    recurring_invoice: RecurringInvoiceCreateNestedOneWithoutItemsInput
   }
 
   export type RecurringInvoiceItemUncheckedCreateInput = {
@@ -18292,8 +18284,8 @@ export namespace Prisma {
     quantity?: IntFieldUpdateOperationsInput | number
     unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    recurring_invoice?: RecurringInvoiceUpdateOneRequiredWithoutItemsNestedInput
     product?: ProductUpdateOneRequiredWithoutRecurringInvoiceItemNestedInput
+    recurring_invoice?: RecurringInvoiceUpdateOneRequiredWithoutItemsNestedInput
   }
 
   export type RecurringInvoiceItemUncheckedUpdateInput = {
@@ -18401,15 +18393,16 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
-  export type ProfileNullableScalarRelationFilter = {
-    is?: ProfileWhereInput | null
-    isNot?: ProfileWhereInput | null
-  }
-
   export type ClientListRelationFilter = {
     every?: ClientWhereInput
     some?: ClientWhereInput
     none?: ClientWhereInput
+  }
+
+  export type InvoiceListRelationFilter = {
+    every?: InvoiceWhereInput
+    some?: InvoiceWhereInput
+    none?: InvoiceWhereInput
   }
 
   export type ProductListRelationFilter = {
@@ -18418,10 +18411,9 @@ export namespace Prisma {
     none?: ProductWhereInput
   }
 
-  export type InvoiceListRelationFilter = {
-    every?: InvoiceWhereInput
-    some?: InvoiceWhereInput
-    none?: InvoiceWhereInput
+  export type ProfileNullableScalarRelationFilter = {
+    is?: ProfileWhereInput | null
+    isNot?: ProfileWhereInput | null
   }
 
   export type RecurringInvoiceListRelationFilter = {
@@ -18439,11 +18431,11 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
-  export type ProductOrderByRelationAggregateInput = {
+  export type InvoiceOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
-  export type InvoiceOrderByRelationAggregateInput = {
+  export type ProductOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -19196,14 +19188,14 @@ export namespace Prisma {
     not?: NestedEnumPaymentMethodFilter<$PrismaModel> | $Enums.PaymentMethod
   }
 
-  export type EWalletNullableScalarRelationFilter = {
-    is?: EWalletWhereInput | null
-    isNot?: EWalletWhereInput | null
-  }
-
   export type BankAccountNullableScalarRelationFilter = {
     is?: BankAccountWhereInput | null
     isNot?: BankAccountWhereInput | null
+  }
+
+  export type EWalletNullableScalarRelationFilter = {
+    is?: EWalletWhereInput | null
+    isNot?: EWalletWhereInput | null
   }
 
   export type PaymentCountOrderByAggregateInput = {
@@ -19395,24 +19387,11 @@ export namespace Prisma {
     tax_rate?: SortOrder
   }
 
-  export type ProfileCreateNestedOneWithoutUserInput = {
-    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
-    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
-    connect?: ProfileWhereUniqueInput
-  }
-
   export type ClientCreateNestedManyWithoutUserInput = {
     create?: XOR<ClientCreateWithoutUserInput, ClientUncheckedCreateWithoutUserInput> | ClientCreateWithoutUserInput[] | ClientUncheckedCreateWithoutUserInput[]
     connectOrCreate?: ClientCreateOrConnectWithoutUserInput | ClientCreateOrConnectWithoutUserInput[]
     createMany?: ClientCreateManyUserInputEnvelope
     connect?: ClientWhereUniqueInput | ClientWhereUniqueInput[]
-  }
-
-  export type ProductCreateNestedManyWithoutUserInput = {
-    create?: XOR<ProductCreateWithoutUserInput, ProductUncheckedCreateWithoutUserInput> | ProductCreateWithoutUserInput[] | ProductUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: ProductCreateOrConnectWithoutUserInput | ProductCreateOrConnectWithoutUserInput[]
-    createMany?: ProductCreateManyUserInputEnvelope
-    connect?: ProductWhereUniqueInput | ProductWhereUniqueInput[]
   }
 
   export type InvoiceCreateNestedManyWithoutUserInput = {
@@ -19422,17 +19401,24 @@ export namespace Prisma {
     connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
   }
 
+  export type ProductCreateNestedManyWithoutUserInput = {
+    create?: XOR<ProductCreateWithoutUserInput, ProductUncheckedCreateWithoutUserInput> | ProductCreateWithoutUserInput[] | ProductUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: ProductCreateOrConnectWithoutUserInput | ProductCreateOrConnectWithoutUserInput[]
+    createMany?: ProductCreateManyUserInputEnvelope
+    connect?: ProductWhereUniqueInput | ProductWhereUniqueInput[]
+  }
+
+  export type ProfileCreateNestedOneWithoutUserInput = {
+    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
+    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
+    connect?: ProfileWhereUniqueInput
+  }
+
   export type RecurringInvoiceCreateNestedManyWithoutUserInput = {
     create?: XOR<RecurringInvoiceCreateWithoutUserInput, RecurringInvoiceUncheckedCreateWithoutUserInput> | RecurringInvoiceCreateWithoutUserInput[] | RecurringInvoiceUncheckedCreateWithoutUserInput[]
     connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutUserInput | RecurringInvoiceCreateOrConnectWithoutUserInput[]
     createMany?: RecurringInvoiceCreateManyUserInputEnvelope
     connect?: RecurringInvoiceWhereUniqueInput | RecurringInvoiceWhereUniqueInput[]
-  }
-
-  export type ProfileUncheckedCreateNestedOneWithoutUserInput = {
-    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
-    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
-    connect?: ProfileWhereUniqueInput
   }
 
   export type ClientUncheckedCreateNestedManyWithoutUserInput = {
@@ -19442,6 +19428,13 @@ export namespace Prisma {
     connect?: ClientWhereUniqueInput | ClientWhereUniqueInput[]
   }
 
+  export type InvoiceUncheckedCreateNestedManyWithoutUserInput = {
+    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
+    createMany?: InvoiceCreateManyUserInputEnvelope
+    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+  }
+
   export type ProductUncheckedCreateNestedManyWithoutUserInput = {
     create?: XOR<ProductCreateWithoutUserInput, ProductUncheckedCreateWithoutUserInput> | ProductCreateWithoutUserInput[] | ProductUncheckedCreateWithoutUserInput[]
     connectOrCreate?: ProductCreateOrConnectWithoutUserInput | ProductCreateOrConnectWithoutUserInput[]
@@ -19449,11 +19442,10 @@ export namespace Prisma {
     connect?: ProductWhereUniqueInput | ProductWhereUniqueInput[]
   }
 
-  export type InvoiceUncheckedCreateNestedManyWithoutUserInput = {
-    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
-    createMany?: InvoiceCreateManyUserInputEnvelope
-    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+  export type ProfileUncheckedCreateNestedOneWithoutUserInput = {
+    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
+    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
+    connect?: ProfileWhereUniqueInput
   }
 
   export type RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput = {
@@ -19483,16 +19475,6 @@ export namespace Prisma {
     set?: Date | string | null
   }
 
-  export type ProfileUpdateOneWithoutUserNestedInput = {
-    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
-    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
-    upsert?: ProfileUpsertWithoutUserInput
-    disconnect?: ProfileWhereInput | boolean
-    delete?: ProfileWhereInput | boolean
-    connect?: ProfileWhereUniqueInput
-    update?: XOR<XOR<ProfileUpdateToOneWithWhereWithoutUserInput, ProfileUpdateWithoutUserInput>, ProfileUncheckedUpdateWithoutUserInput>
-  }
-
   export type ClientUpdateManyWithoutUserNestedInput = {
     create?: XOR<ClientCreateWithoutUserInput, ClientUncheckedCreateWithoutUserInput> | ClientCreateWithoutUserInput[] | ClientUncheckedCreateWithoutUserInput[]
     connectOrCreate?: ClientCreateOrConnectWithoutUserInput | ClientCreateOrConnectWithoutUserInput[]
@@ -19505,6 +19487,20 @@ export namespace Prisma {
     update?: ClientUpdateWithWhereUniqueWithoutUserInput | ClientUpdateWithWhereUniqueWithoutUserInput[]
     updateMany?: ClientUpdateManyWithWhereWithoutUserInput | ClientUpdateManyWithWhereWithoutUserInput[]
     deleteMany?: ClientScalarWhereInput | ClientScalarWhereInput[]
+  }
+
+  export type InvoiceUpdateManyWithoutUserNestedInput = {
+    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
+    upsert?: InvoiceUpsertWithWhereUniqueWithoutUserInput | InvoiceUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: InvoiceCreateManyUserInputEnvelope
+    set?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    disconnect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    delete?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    update?: InvoiceUpdateWithWhereUniqueWithoutUserInput | InvoiceUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: InvoiceUpdateManyWithWhereWithoutUserInput | InvoiceUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
   }
 
   export type ProductUpdateManyWithoutUserNestedInput = {
@@ -19521,18 +19517,14 @@ export namespace Prisma {
     deleteMany?: ProductScalarWhereInput | ProductScalarWhereInput[]
   }
 
-  export type InvoiceUpdateManyWithoutUserNestedInput = {
-    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
-    upsert?: InvoiceUpsertWithWhereUniqueWithoutUserInput | InvoiceUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: InvoiceCreateManyUserInputEnvelope
-    set?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    disconnect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    delete?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    update?: InvoiceUpdateWithWhereUniqueWithoutUserInput | InvoiceUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: InvoiceUpdateManyWithWhereWithoutUserInput | InvoiceUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
+  export type ProfileUpdateOneWithoutUserNestedInput = {
+    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
+    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
+    upsert?: ProfileUpsertWithoutUserInput
+    disconnect?: ProfileWhereInput | boolean
+    delete?: ProfileWhereInput | boolean
+    connect?: ProfileWhereUniqueInput
+    update?: XOR<XOR<ProfileUpdateToOneWithWhereWithoutUserInput, ProfileUpdateWithoutUserInput>, ProfileUncheckedUpdateWithoutUserInput>
   }
 
   export type RecurringInvoiceUpdateManyWithoutUserNestedInput = {
@@ -19557,16 +19549,6 @@ export namespace Prisma {
     divide?: number
   }
 
-  export type ProfileUncheckedUpdateOneWithoutUserNestedInput = {
-    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
-    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
-    upsert?: ProfileUpsertWithoutUserInput
-    disconnect?: ProfileWhereInput | boolean
-    delete?: ProfileWhereInput | boolean
-    connect?: ProfileWhereUniqueInput
-    update?: XOR<XOR<ProfileUpdateToOneWithWhereWithoutUserInput, ProfileUpdateWithoutUserInput>, ProfileUncheckedUpdateWithoutUserInput>
-  }
-
   export type ClientUncheckedUpdateManyWithoutUserNestedInput = {
     create?: XOR<ClientCreateWithoutUserInput, ClientUncheckedCreateWithoutUserInput> | ClientCreateWithoutUserInput[] | ClientUncheckedCreateWithoutUserInput[]
     connectOrCreate?: ClientCreateOrConnectWithoutUserInput | ClientCreateOrConnectWithoutUserInput[]
@@ -19579,6 +19561,20 @@ export namespace Prisma {
     update?: ClientUpdateWithWhereUniqueWithoutUserInput | ClientUpdateWithWhereUniqueWithoutUserInput[]
     updateMany?: ClientUpdateManyWithWhereWithoutUserInput | ClientUpdateManyWithWhereWithoutUserInput[]
     deleteMany?: ClientScalarWhereInput | ClientScalarWhereInput[]
+  }
+
+  export type InvoiceUncheckedUpdateManyWithoutUserNestedInput = {
+    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
+    upsert?: InvoiceUpsertWithWhereUniqueWithoutUserInput | InvoiceUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: InvoiceCreateManyUserInputEnvelope
+    set?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    disconnect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    delete?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
+    update?: InvoiceUpdateWithWhereUniqueWithoutUserInput | InvoiceUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: InvoiceUpdateManyWithWhereWithoutUserInput | InvoiceUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
   }
 
   export type ProductUncheckedUpdateManyWithoutUserNestedInput = {
@@ -19595,18 +19591,14 @@ export namespace Prisma {
     deleteMany?: ProductScalarWhereInput | ProductScalarWhereInput[]
   }
 
-  export type InvoiceUncheckedUpdateManyWithoutUserNestedInput = {
-    create?: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput> | InvoiceCreateWithoutUserInput[] | InvoiceUncheckedCreateWithoutUserInput[]
-    connectOrCreate?: InvoiceCreateOrConnectWithoutUserInput | InvoiceCreateOrConnectWithoutUserInput[]
-    upsert?: InvoiceUpsertWithWhereUniqueWithoutUserInput | InvoiceUpsertWithWhereUniqueWithoutUserInput[]
-    createMany?: InvoiceCreateManyUserInputEnvelope
-    set?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    disconnect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    delete?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
-    update?: InvoiceUpdateWithWhereUniqueWithoutUserInput | InvoiceUpdateWithWhereUniqueWithoutUserInput[]
-    updateMany?: InvoiceUpdateManyWithWhereWithoutUserInput | InvoiceUpdateManyWithWhereWithoutUserInput[]
-    deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
+  export type ProfileUncheckedUpdateOneWithoutUserNestedInput = {
+    create?: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
+    connectOrCreate?: ProfileCreateOrConnectWithoutUserInput
+    upsert?: ProfileUpsertWithoutUserInput
+    disconnect?: ProfileWhereInput | boolean
+    delete?: ProfileWhereInput | boolean
+    connect?: ProfileWhereUniqueInput
+    update?: XOR<XOR<ProfileUpdateToOneWithWhereWithoutUserInput, ProfileUpdateWithoutUserInput>, ProfileUncheckedUpdateWithoutUserInput>
   }
 
   export type RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput = {
@@ -19931,17 +19923,17 @@ export namespace Prisma {
     deleteMany?: RecurringInvoiceScalarWhereInput | RecurringInvoiceScalarWhereInput[]
   }
 
-  export type UserCreateNestedOneWithoutProductsInput = {
-    create?: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
-    connectOrCreate?: UserCreateOrConnectWithoutProductsInput
-    connect?: UserWhereUniqueInput
-  }
-
   export type InvoiceItemCreateNestedManyWithoutProductInput = {
     create?: XOR<InvoiceItemCreateWithoutProductInput, InvoiceItemUncheckedCreateWithoutProductInput> | InvoiceItemCreateWithoutProductInput[] | InvoiceItemUncheckedCreateWithoutProductInput[]
     connectOrCreate?: InvoiceItemCreateOrConnectWithoutProductInput | InvoiceItemCreateOrConnectWithoutProductInput[]
     createMany?: InvoiceItemCreateManyProductInputEnvelope
     connect?: InvoiceItemWhereUniqueInput | InvoiceItemWhereUniqueInput[]
+  }
+
+  export type UserCreateNestedOneWithoutProductsInput = {
+    create?: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutProductsInput
+    connect?: UserWhereUniqueInput
   }
 
   export type RecurringInvoiceItemCreateNestedManyWithoutProductInput = {
@@ -19981,14 +19973,6 @@ export namespace Prisma {
     divide?: Decimal | DecimalJsLike | number | string
   }
 
-  export type UserUpdateOneRequiredWithoutProductsNestedInput = {
-    create?: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
-    connectOrCreate?: UserCreateOrConnectWithoutProductsInput
-    upsert?: UserUpsertWithoutProductsInput
-    connect?: UserWhereUniqueInput
-    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutProductsInput, UserUpdateWithoutProductsInput>, UserUncheckedUpdateWithoutProductsInput>
-  }
-
   export type InvoiceItemUpdateManyWithoutProductNestedInput = {
     create?: XOR<InvoiceItemCreateWithoutProductInput, InvoiceItemUncheckedCreateWithoutProductInput> | InvoiceItemCreateWithoutProductInput[] | InvoiceItemUncheckedCreateWithoutProductInput[]
     connectOrCreate?: InvoiceItemCreateOrConnectWithoutProductInput | InvoiceItemCreateOrConnectWithoutProductInput[]
@@ -20001,6 +19985,14 @@ export namespace Prisma {
     update?: InvoiceItemUpdateWithWhereUniqueWithoutProductInput | InvoiceItemUpdateWithWhereUniqueWithoutProductInput[]
     updateMany?: InvoiceItemUpdateManyWithWhereWithoutProductInput | InvoiceItemUpdateManyWithWhereWithoutProductInput[]
     deleteMany?: InvoiceItemScalarWhereInput | InvoiceItemScalarWhereInput[]
+  }
+
+  export type UserUpdateOneRequiredWithoutProductsNestedInput = {
+    create?: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutProductsInput
+    upsert?: UserUpsertWithoutProductsInput
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutProductsInput, UserUpdateWithoutProductsInput>, UserUncheckedUpdateWithoutProductsInput>
   }
 
   export type RecurringInvoiceItemUpdateManyWithoutProductNestedInput = {
@@ -20045,16 +20037,22 @@ export namespace Prisma {
     deleteMany?: RecurringInvoiceItemScalarWhereInput | RecurringInvoiceItemScalarWhereInput[]
   }
 
-  export type UserCreateNestedOneWithoutInvoicesInput = {
-    create?: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
-    connectOrCreate?: UserCreateOrConnectWithoutInvoicesInput
-    connect?: UserWhereUniqueInput
-  }
-
   export type ClientCreateNestedOneWithoutInvoicesInput = {
     create?: XOR<ClientCreateWithoutInvoicesInput, ClientUncheckedCreateWithoutInvoicesInput>
     connectOrCreate?: ClientCreateOrConnectWithoutInvoicesInput
     connect?: ClientWhereUniqueInput
+  }
+
+  export type RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput = {
+    create?: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
+    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput
+    connect?: RecurringInvoiceWhereUniqueInput
+  }
+
+  export type UserCreateNestedOneWithoutInvoicesInput = {
+    create?: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
+    connectOrCreate?: UserCreateOrConnectWithoutInvoicesInput
+    connect?: UserWhereUniqueInput
   }
 
   export type InvoiceItemCreateNestedManyWithoutInvoiceInput = {
@@ -20069,12 +20067,6 @@ export namespace Prisma {
     connectOrCreate?: PaymentCreateOrConnectWithoutInvoiceInput | PaymentCreateOrConnectWithoutInvoiceInput[]
     createMany?: PaymentCreateManyInvoiceInputEnvelope
     connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
-  }
-
-  export type RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput = {
-    create?: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
-    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput
-    connect?: RecurringInvoiceWhereUniqueInput
   }
 
   export type InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput = {
@@ -20095,20 +20087,30 @@ export namespace Prisma {
     set?: $Enums.InvoiceStatus
   }
 
-  export type UserUpdateOneRequiredWithoutInvoicesNestedInput = {
-    create?: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
-    connectOrCreate?: UserCreateOrConnectWithoutInvoicesInput
-    upsert?: UserUpsertWithoutInvoicesInput
-    connect?: UserWhereUniqueInput
-    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutInvoicesInput, UserUpdateWithoutInvoicesInput>, UserUncheckedUpdateWithoutInvoicesInput>
-  }
-
   export type ClientUpdateOneRequiredWithoutInvoicesNestedInput = {
     create?: XOR<ClientCreateWithoutInvoicesInput, ClientUncheckedCreateWithoutInvoicesInput>
     connectOrCreate?: ClientCreateOrConnectWithoutInvoicesInput
     upsert?: ClientUpsertWithoutInvoicesInput
     connect?: ClientWhereUniqueInput
     update?: XOR<XOR<ClientUpdateToOneWithWhereWithoutInvoicesInput, ClientUpdateWithoutInvoicesInput>, ClientUncheckedUpdateWithoutInvoicesInput>
+  }
+
+  export type RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput = {
+    create?: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
+    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput
+    upsert?: RecurringInvoiceUpsertWithoutGenerated_invoicesInput
+    disconnect?: RecurringInvoiceWhereInput | boolean
+    delete?: RecurringInvoiceWhereInput | boolean
+    connect?: RecurringInvoiceWhereUniqueInput
+    update?: XOR<XOR<RecurringInvoiceUpdateToOneWithWhereWithoutGenerated_invoicesInput, RecurringInvoiceUpdateWithoutGenerated_invoicesInput>, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
+  }
+
+  export type UserUpdateOneRequiredWithoutInvoicesNestedInput = {
+    create?: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
+    connectOrCreate?: UserCreateOrConnectWithoutInvoicesInput
+    upsert?: UserUpsertWithoutInvoicesInput
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutInvoicesInput, UserUpdateWithoutInvoicesInput>, UserUncheckedUpdateWithoutInvoicesInput>
   }
 
   export type InvoiceItemUpdateManyWithoutInvoiceNestedInput = {
@@ -20137,16 +20139,6 @@ export namespace Prisma {
     update?: PaymentUpdateWithWhereUniqueWithoutInvoiceInput | PaymentUpdateWithWhereUniqueWithoutInvoiceInput[]
     updateMany?: PaymentUpdateManyWithWhereWithoutInvoiceInput | PaymentUpdateManyWithWhereWithoutInvoiceInput[]
     deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
-  }
-
-  export type RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput = {
-    create?: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
-    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput
-    upsert?: RecurringInvoiceUpsertWithoutGenerated_invoicesInput
-    disconnect?: RecurringInvoiceWhereInput | boolean
-    delete?: RecurringInvoiceWhereInput | boolean
-    connect?: RecurringInvoiceWhereUniqueInput
-    update?: XOR<XOR<RecurringInvoiceUpdateToOneWithWhereWithoutGenerated_invoicesInput, RecurringInvoiceUpdateWithoutGenerated_invoicesInput>, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
   }
 
   export type NullableIntFieldUpdateOperationsInput = {
@@ -20213,10 +20205,10 @@ export namespace Prisma {
     update?: XOR<XOR<ProductUpdateToOneWithWhereWithoutInvoiceItemsInput, ProductUpdateWithoutInvoiceItemsInput>, ProductUncheckedUpdateWithoutInvoiceItemsInput>
   }
 
-  export type InvoiceCreateNestedOneWithoutPaymentsInput = {
-    create?: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
-    connectOrCreate?: InvoiceCreateOrConnectWithoutPaymentsInput
-    connect?: InvoiceWhereUniqueInput
+  export type BankAccountCreateNestedOneWithoutPaymentsInput = {
+    create?: XOR<BankAccountCreateWithoutPaymentsInput, BankAccountUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: BankAccountCreateOrConnectWithoutPaymentsInput
+    connect?: BankAccountWhereUniqueInput
   }
 
   export type EWalletCreateNestedOneWithoutPaymentsInput = {
@@ -20225,32 +20217,14 @@ export namespace Prisma {
     connect?: EWalletWhereUniqueInput
   }
 
-  export type BankAccountCreateNestedOneWithoutPaymentsInput = {
-    create?: XOR<BankAccountCreateWithoutPaymentsInput, BankAccountUncheckedCreateWithoutPaymentsInput>
-    connectOrCreate?: BankAccountCreateOrConnectWithoutPaymentsInput
-    connect?: BankAccountWhereUniqueInput
+  export type InvoiceCreateNestedOneWithoutPaymentsInput = {
+    create?: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: InvoiceCreateOrConnectWithoutPaymentsInput
+    connect?: InvoiceWhereUniqueInput
   }
 
   export type EnumPaymentMethodFieldUpdateOperationsInput = {
     set?: $Enums.PaymentMethod
-  }
-
-  export type InvoiceUpdateOneRequiredWithoutPaymentsNestedInput = {
-    create?: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
-    connectOrCreate?: InvoiceCreateOrConnectWithoutPaymentsInput
-    upsert?: InvoiceUpsertWithoutPaymentsInput
-    connect?: InvoiceWhereUniqueInput
-    update?: XOR<XOR<InvoiceUpdateToOneWithWhereWithoutPaymentsInput, InvoiceUpdateWithoutPaymentsInput>, InvoiceUncheckedUpdateWithoutPaymentsInput>
-  }
-
-  export type EWalletUpdateOneWithoutPaymentsNestedInput = {
-    create?: XOR<EWalletCreateWithoutPaymentsInput, EWalletUncheckedCreateWithoutPaymentsInput>
-    connectOrCreate?: EWalletCreateOrConnectWithoutPaymentsInput
-    upsert?: EWalletUpsertWithoutPaymentsInput
-    disconnect?: EWalletWhereInput | boolean
-    delete?: EWalletWhereInput | boolean
-    connect?: EWalletWhereUniqueInput
-    update?: XOR<XOR<EWalletUpdateToOneWithWhereWithoutPaymentsInput, EWalletUpdateWithoutPaymentsInput>, EWalletUncheckedUpdateWithoutPaymentsInput>
   }
 
   export type BankAccountUpdateOneWithoutPaymentsNestedInput = {
@@ -20263,23 +20237,22 @@ export namespace Prisma {
     update?: XOR<XOR<BankAccountUpdateToOneWithWhereWithoutPaymentsInput, BankAccountUpdateWithoutPaymentsInput>, BankAccountUncheckedUpdateWithoutPaymentsInput>
   }
 
-  export type UserCreateNestedOneWithoutRecurringInvoiceInput = {
-    create?: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
-    connectOrCreate?: UserCreateOrConnectWithoutRecurringInvoiceInput
-    connect?: UserWhereUniqueInput
+  export type EWalletUpdateOneWithoutPaymentsNestedInput = {
+    create?: XOR<EWalletCreateWithoutPaymentsInput, EWalletUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: EWalletCreateOrConnectWithoutPaymentsInput
+    upsert?: EWalletUpsertWithoutPaymentsInput
+    disconnect?: EWalletWhereInput | boolean
+    delete?: EWalletWhereInput | boolean
+    connect?: EWalletWhereUniqueInput
+    update?: XOR<XOR<EWalletUpdateToOneWithWhereWithoutPaymentsInput, EWalletUpdateWithoutPaymentsInput>, EWalletUncheckedUpdateWithoutPaymentsInput>
   }
 
-  export type ClientCreateNestedOneWithoutRecurringInvoiceInput = {
-    create?: XOR<ClientCreateWithoutRecurringInvoiceInput, ClientUncheckedCreateWithoutRecurringInvoiceInput>
-    connectOrCreate?: ClientCreateOrConnectWithoutRecurringInvoiceInput
-    connect?: ClientWhereUniqueInput
-  }
-
-  export type RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput = {
-    create?: XOR<RecurringInvoiceItemCreateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput> | RecurringInvoiceItemCreateWithoutRecurring_invoiceInput[] | RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput[]
-    connectOrCreate?: RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput | RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput[]
-    createMany?: RecurringInvoiceItemCreateManyRecurring_invoiceInputEnvelope
-    connect?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
+  export type InvoiceUpdateOneRequiredWithoutPaymentsNestedInput = {
+    create?: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: InvoiceCreateOrConnectWithoutPaymentsInput
+    upsert?: InvoiceUpsertWithoutPaymentsInput
+    connect?: InvoiceWhereUniqueInput
+    update?: XOR<XOR<InvoiceUpdateToOneWithWhereWithoutPaymentsInput, InvoiceUpdateWithoutPaymentsInput>, InvoiceUncheckedUpdateWithoutPaymentsInput>
   }
 
   export type InvoiceCreateNestedManyWithoutSource_recurringInput = {
@@ -20289,7 +20262,19 @@ export namespace Prisma {
     connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
   }
 
-  export type RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput = {
+  export type ClientCreateNestedOneWithoutRecurringInvoiceInput = {
+    create?: XOR<ClientCreateWithoutRecurringInvoiceInput, ClientUncheckedCreateWithoutRecurringInvoiceInput>
+    connectOrCreate?: ClientCreateOrConnectWithoutRecurringInvoiceInput
+    connect?: ClientWhereUniqueInput
+  }
+
+  export type UserCreateNestedOneWithoutRecurringInvoiceInput = {
+    create?: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
+    connectOrCreate?: UserCreateOrConnectWithoutRecurringInvoiceInput
+    connect?: UserWhereUniqueInput
+  }
+
+  export type RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput = {
     create?: XOR<RecurringInvoiceItemCreateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput> | RecurringInvoiceItemCreateWithoutRecurring_invoiceInput[] | RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput[]
     connectOrCreate?: RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput | RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput[]
     createMany?: RecurringInvoiceItemCreateManyRecurring_invoiceInputEnvelope
@@ -20303,38 +20288,15 @@ export namespace Prisma {
     connect?: InvoiceWhereUniqueInput | InvoiceWhereUniqueInput[]
   }
 
-  export type EnumRecurringPatternFieldUpdateOperationsInput = {
-    set?: $Enums.RecurringPattern
-  }
-
-  export type UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput = {
-    create?: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
-    connectOrCreate?: UserCreateOrConnectWithoutRecurringInvoiceInput
-    upsert?: UserUpsertWithoutRecurringInvoiceInput
-    connect?: UserWhereUniqueInput
-    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutRecurringInvoiceInput, UserUpdateWithoutRecurringInvoiceInput>, UserUncheckedUpdateWithoutRecurringInvoiceInput>
-  }
-
-  export type ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput = {
-    create?: XOR<ClientCreateWithoutRecurringInvoiceInput, ClientUncheckedCreateWithoutRecurringInvoiceInput>
-    connectOrCreate?: ClientCreateOrConnectWithoutRecurringInvoiceInput
-    upsert?: ClientUpsertWithoutRecurringInvoiceInput
-    connect?: ClientWhereUniqueInput
-    update?: XOR<XOR<ClientUpdateToOneWithWhereWithoutRecurringInvoiceInput, ClientUpdateWithoutRecurringInvoiceInput>, ClientUncheckedUpdateWithoutRecurringInvoiceInput>
-  }
-
-  export type RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput = {
+  export type RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput = {
     create?: XOR<RecurringInvoiceItemCreateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput> | RecurringInvoiceItemCreateWithoutRecurring_invoiceInput[] | RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput[]
     connectOrCreate?: RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput | RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput[]
-    upsert?: RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput | RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput[]
     createMany?: RecurringInvoiceItemCreateManyRecurring_invoiceInputEnvelope
-    set?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
-    disconnect?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
-    delete?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
     connect?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
-    update?: RecurringInvoiceItemUpdateWithWhereUniqueWithoutRecurring_invoiceInput | RecurringInvoiceItemUpdateWithWhereUniqueWithoutRecurring_invoiceInput[]
-    updateMany?: RecurringInvoiceItemUpdateManyWithWhereWithoutRecurring_invoiceInput | RecurringInvoiceItemUpdateManyWithWhereWithoutRecurring_invoiceInput[]
-    deleteMany?: RecurringInvoiceItemScalarWhereInput | RecurringInvoiceItemScalarWhereInput[]
+  }
+
+  export type EnumRecurringPatternFieldUpdateOperationsInput = {
+    set?: $Enums.RecurringPattern
   }
 
   export type InvoiceUpdateManyWithoutSource_recurringNestedInput = {
@@ -20351,7 +20313,23 @@ export namespace Prisma {
     deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
   }
 
-  export type RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput = {
+  export type ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput = {
+    create?: XOR<ClientCreateWithoutRecurringInvoiceInput, ClientUncheckedCreateWithoutRecurringInvoiceInput>
+    connectOrCreate?: ClientCreateOrConnectWithoutRecurringInvoiceInput
+    upsert?: ClientUpsertWithoutRecurringInvoiceInput
+    connect?: ClientWhereUniqueInput
+    update?: XOR<XOR<ClientUpdateToOneWithWhereWithoutRecurringInvoiceInput, ClientUpdateWithoutRecurringInvoiceInput>, ClientUncheckedUpdateWithoutRecurringInvoiceInput>
+  }
+
+  export type UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput = {
+    create?: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
+    connectOrCreate?: UserCreateOrConnectWithoutRecurringInvoiceInput
+    upsert?: UserUpsertWithoutRecurringInvoiceInput
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutRecurringInvoiceInput, UserUpdateWithoutRecurringInvoiceInput>, UserUncheckedUpdateWithoutRecurringInvoiceInput>
+  }
+
+  export type RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput = {
     create?: XOR<RecurringInvoiceItemCreateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput> | RecurringInvoiceItemCreateWithoutRecurring_invoiceInput[] | RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput[]
     connectOrCreate?: RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput | RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput[]
     upsert?: RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput | RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput[]
@@ -20379,10 +20357,18 @@ export namespace Prisma {
     deleteMany?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
   }
 
-  export type RecurringInvoiceCreateNestedOneWithoutItemsInput = {
-    create?: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
-    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutItemsInput
-    connect?: RecurringInvoiceWhereUniqueInput
+  export type RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput = {
+    create?: XOR<RecurringInvoiceItemCreateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput> | RecurringInvoiceItemCreateWithoutRecurring_invoiceInput[] | RecurringInvoiceItemUncheckedCreateWithoutRecurring_invoiceInput[]
+    connectOrCreate?: RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput | RecurringInvoiceItemCreateOrConnectWithoutRecurring_invoiceInput[]
+    upsert?: RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput | RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput[]
+    createMany?: RecurringInvoiceItemCreateManyRecurring_invoiceInputEnvelope
+    set?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
+    disconnect?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
+    delete?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
+    connect?: RecurringInvoiceItemWhereUniqueInput | RecurringInvoiceItemWhereUniqueInput[]
+    update?: RecurringInvoiceItemUpdateWithWhereUniqueWithoutRecurring_invoiceInput | RecurringInvoiceItemUpdateWithWhereUniqueWithoutRecurring_invoiceInput[]
+    updateMany?: RecurringInvoiceItemUpdateManyWithWhereWithoutRecurring_invoiceInput | RecurringInvoiceItemUpdateManyWithWhereWithoutRecurring_invoiceInput[]
+    deleteMany?: RecurringInvoiceItemScalarWhereInput | RecurringInvoiceItemScalarWhereInput[]
   }
 
   export type ProductCreateNestedOneWithoutRecurringInvoiceItemInput = {
@@ -20391,12 +20377,10 @@ export namespace Prisma {
     connect?: ProductWhereUniqueInput
   }
 
-  export type RecurringInvoiceUpdateOneRequiredWithoutItemsNestedInput = {
+  export type RecurringInvoiceCreateNestedOneWithoutItemsInput = {
     create?: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
     connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutItemsInput
-    upsert?: RecurringInvoiceUpsertWithoutItemsInput
     connect?: RecurringInvoiceWhereUniqueInput
-    update?: XOR<XOR<RecurringInvoiceUpdateToOneWithWhereWithoutItemsInput, RecurringInvoiceUpdateWithoutItemsInput>, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
   }
 
   export type ProductUpdateOneRequiredWithoutRecurringInvoiceItemNestedInput = {
@@ -20405,6 +20389,14 @@ export namespace Prisma {
     upsert?: ProductUpsertWithoutRecurringInvoiceItemInput
     connect?: ProductWhereUniqueInput
     update?: XOR<XOR<ProductUpdateToOneWithWhereWithoutRecurringInvoiceItemInput, ProductUpdateWithoutRecurringInvoiceItemInput>, ProductUncheckedUpdateWithoutRecurringInvoiceItemInput>
+  }
+
+  export type RecurringInvoiceUpdateOneRequiredWithoutItemsNestedInput = {
+    create?: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
+    connectOrCreate?: RecurringInvoiceCreateOrConnectWithoutItemsInput
+    upsert?: RecurringInvoiceUpsertWithoutItemsInput
+    connect?: RecurringInvoiceWhereUniqueInput
+    update?: XOR<XOR<RecurringInvoiceUpdateToOneWithWhereWithoutItemsInput, RecurringInvoiceUpdateWithoutItemsInput>, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
   }
 
   export type NestedIntFilter<$PrismaModel = never> = {
@@ -20713,44 +20705,6 @@ export namespace Prisma {
     _max?: NestedEnumRecurringPatternFilter<$PrismaModel>
   }
 
-  export type ProfileCreateWithoutUserInput = {
-    company_name?: string | null
-    address?: string | null
-    city?: string | null
-    state?: string | null
-    postal_code?: string | null
-    country?: string | null
-    logo?: string | null
-    website?: string | null
-    tax_number?: string | null
-    created_at?: Date | string
-    updated_at?: Date | string
-    bank_accounts?: BankAccountCreateNestedManyWithoutProfileInput
-    e_wallets?: EWalletCreateNestedManyWithoutProfileInput
-  }
-
-  export type ProfileUncheckedCreateWithoutUserInput = {
-    profile_id?: number
-    company_name?: string | null
-    address?: string | null
-    city?: string | null
-    state?: string | null
-    postal_code?: string | null
-    country?: string | null
-    logo?: string | null
-    website?: string | null
-    tax_number?: string | null
-    created_at?: Date | string
-    updated_at?: Date | string
-    bank_accounts?: BankAccountUncheckedCreateNestedManyWithoutProfileInput
-    e_wallets?: EWalletUncheckedCreateNestedManyWithoutProfileInput
-  }
-
-  export type ProfileCreateOrConnectWithoutUserInput = {
-    where: ProfileWhereUniqueInput
-    create: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
-  }
-
   export type ClientCreateWithoutUserInput = {
     name: string
     email: string
@@ -20800,6 +20754,57 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type InvoiceCreateWithoutUserInput = {
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    client: ClientCreateNestedOneWithoutInvoicesInput
+    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
+    payments?: PaymentCreateNestedManyWithoutInvoiceInput
+  }
+
+  export type InvoiceUncheckedCreateWithoutUserInput = {
+    invoice_id?: number
+    client_id: number
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    source_recurring_id?: number | null
+    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
+    payments?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
+  }
+
+  export type InvoiceCreateOrConnectWithoutUserInput = {
+    where: InvoiceWhereUniqueInput
+    create: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput>
+  }
+
+  export type InvoiceCreateManyUserInputEnvelope = {
+    data: InvoiceCreateManyUserInput | InvoiceCreateManyUserInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ProductCreateWithoutUserInput = {
     name: string
     description?: string | null
@@ -20841,55 +20846,42 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
-  export type InvoiceCreateWithoutUserInput = {
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
+  export type ProfileCreateWithoutUserInput = {
+    company_name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    postal_code?: string | null
+    country?: string | null
+    logo?: string | null
+    website?: string | null
+    tax_number?: string | null
     created_at?: Date | string
     updated_at?: Date | string
-    deleted_at?: Date | string | null
-    client: ClientCreateNestedOneWithoutInvoicesInput
-    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
-    payments?: PaymentCreateNestedManyWithoutInvoiceInput
-    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    bank_accounts?: BankAccountCreateNestedManyWithoutProfileInput
+    e_wallets?: EWalletCreateNestedManyWithoutProfileInput
   }
 
-  export type InvoiceUncheckedCreateWithoutUserInput = {
-    invoice_id?: number
-    client_id: number
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
+  export type ProfileUncheckedCreateWithoutUserInput = {
+    profile_id?: number
+    company_name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    postal_code?: string | null
+    country?: string | null
+    logo?: string | null
+    website?: string | null
+    tax_number?: string | null
     created_at?: Date | string
     updated_at?: Date | string
-    deleted_at?: Date | string | null
-    source_recurring_id?: number | null
-    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
-    payments?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
+    bank_accounts?: BankAccountUncheckedCreateNestedManyWithoutProfileInput
+    e_wallets?: EWalletUncheckedCreateNestedManyWithoutProfileInput
   }
 
-  export type InvoiceCreateOrConnectWithoutUserInput = {
-    where: InvoiceWhereUniqueInput
-    create: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput>
-  }
-
-  export type InvoiceCreateManyUserInputEnvelope = {
-    data: InvoiceCreateManyUserInput | InvoiceCreateManyUserInput[]
-    skipDuplicates?: boolean
+  export type ProfileCreateOrConnectWithoutUserInput = {
+    where: ProfileWhereUniqueInput
+    create: XOR<ProfileCreateWithoutUserInput, ProfileUncheckedCreateWithoutUserInput>
   }
 
   export type RecurringInvoiceCreateWithoutUserInput = {
@@ -20901,9 +20893,9 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
+    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
     client: ClientCreateNestedOneWithoutRecurringInvoiceInput
     items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
-    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
   }
 
   export type RecurringInvoiceUncheckedCreateWithoutUserInput = {
@@ -20917,8 +20909,8 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
     generated_invoices?: InvoiceUncheckedCreateNestedManyWithoutSource_recurringInput
+    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
   }
 
   export type RecurringInvoiceCreateOrConnectWithoutUserInput = {
@@ -20929,6 +20921,117 @@ export namespace Prisma {
   export type RecurringInvoiceCreateManyUserInputEnvelope = {
     data: RecurringInvoiceCreateManyUserInput | RecurringInvoiceCreateManyUserInput[]
     skipDuplicates?: boolean
+  }
+
+  export type ClientUpsertWithWhereUniqueWithoutUserInput = {
+    where: ClientWhereUniqueInput
+    update: XOR<ClientUpdateWithoutUserInput, ClientUncheckedUpdateWithoutUserInput>
+    create: XOR<ClientCreateWithoutUserInput, ClientUncheckedCreateWithoutUserInput>
+  }
+
+  export type ClientUpdateWithWhereUniqueWithoutUserInput = {
+    where: ClientWhereUniqueInput
+    data: XOR<ClientUpdateWithoutUserInput, ClientUncheckedUpdateWithoutUserInput>
+  }
+
+  export type ClientUpdateManyWithWhereWithoutUserInput = {
+    where: ClientScalarWhereInput
+    data: XOR<ClientUpdateManyMutationInput, ClientUncheckedUpdateManyWithoutUserInput>
+  }
+
+  export type ClientScalarWhereInput = {
+    AND?: ClientScalarWhereInput | ClientScalarWhereInput[]
+    OR?: ClientScalarWhereInput[]
+    NOT?: ClientScalarWhereInput | ClientScalarWhereInput[]
+    client_id?: IntFilter<"Client"> | number
+    user_id?: IntFilter<"Client"> | number
+    name?: StringFilter<"Client"> | string
+    email?: StringFilter<"Client"> | string
+    phone?: StringNullableFilter<"Client"> | string | null
+    address?: StringNullableFilter<"Client"> | string | null
+    city?: StringNullableFilter<"Client"> | string | null
+    state?: StringNullableFilter<"Client"> | string | null
+    postal_code?: StringNullableFilter<"Client"> | string | null
+    country?: StringNullableFilter<"Client"> | string | null
+    company_name?: StringNullableFilter<"Client"> | string | null
+    payment_preference?: StringNullableFilter<"Client"> | string | null
+    notes?: StringNullableFilter<"Client"> | string | null
+    created_at?: DateTimeFilter<"Client"> | Date | string
+    updated_at?: DateTimeFilter<"Client"> | Date | string
+    deleted_at?: DateTimeNullableFilter<"Client"> | Date | string | null
+  }
+
+  export type InvoiceUpsertWithWhereUniqueWithoutUserInput = {
+    where: InvoiceWhereUniqueInput
+    update: XOR<InvoiceUpdateWithoutUserInput, InvoiceUncheckedUpdateWithoutUserInput>
+    create: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput>
+  }
+
+  export type InvoiceUpdateWithWhereUniqueWithoutUserInput = {
+    where: InvoiceWhereUniqueInput
+    data: XOR<InvoiceUpdateWithoutUserInput, InvoiceUncheckedUpdateWithoutUserInput>
+  }
+
+  export type InvoiceUpdateManyWithWhereWithoutUserInput = {
+    where: InvoiceScalarWhereInput
+    data: XOR<InvoiceUpdateManyMutationInput, InvoiceUncheckedUpdateManyWithoutUserInput>
+  }
+
+  export type InvoiceScalarWhereInput = {
+    AND?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
+    OR?: InvoiceScalarWhereInput[]
+    NOT?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
+    invoice_id?: IntFilter<"Invoice"> | number
+    user_id?: IntFilter<"Invoice"> | number
+    client_id?: IntFilter<"Invoice"> | number
+    invoice_number?: StringFilter<"Invoice"> | string
+    issue_date?: DateTimeFilter<"Invoice"> | Date | string
+    due_date?: DateTimeFilter<"Invoice"> | Date | string
+    status?: EnumInvoiceStatusFilter<"Invoice"> | $Enums.InvoiceStatus
+    subtotal?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
+    discount_amount?: DecimalNullableFilter<"Invoice"> | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
+    notes?: StringNullableFilter<"Invoice"> | string | null
+    terms?: StringNullableFilter<"Invoice"> | string | null
+    created_at?: DateTimeFilter<"Invoice"> | Date | string
+    updated_at?: DateTimeFilter<"Invoice"> | Date | string
+    deleted_at?: DateTimeNullableFilter<"Invoice"> | Date | string | null
+    source_recurring_id?: IntNullableFilter<"Invoice"> | number | null
+  }
+
+  export type ProductUpsertWithWhereUniqueWithoutUserInput = {
+    where: ProductWhereUniqueInput
+    update: XOR<ProductUpdateWithoutUserInput, ProductUncheckedUpdateWithoutUserInput>
+    create: XOR<ProductCreateWithoutUserInput, ProductUncheckedCreateWithoutUserInput>
+  }
+
+  export type ProductUpdateWithWhereUniqueWithoutUserInput = {
+    where: ProductWhereUniqueInput
+    data: XOR<ProductUpdateWithoutUserInput, ProductUncheckedUpdateWithoutUserInput>
+  }
+
+  export type ProductUpdateManyWithWhereWithoutUserInput = {
+    where: ProductScalarWhereInput
+    data: XOR<ProductUpdateManyMutationInput, ProductUncheckedUpdateManyWithoutUserInput>
+  }
+
+  export type ProductScalarWhereInput = {
+    AND?: ProductScalarWhereInput | ProductScalarWhereInput[]
+    OR?: ProductScalarWhereInput[]
+    NOT?: ProductScalarWhereInput | ProductScalarWhereInput[]
+    product_id?: IntFilter<"Product"> | number
+    user_id?: IntFilter<"Product"> | number
+    name?: StringFilter<"Product"> | string
+    description?: StringNullableFilter<"Product"> | string | null
+    price?: DecimalFilter<"Product"> | Decimal | DecimalJsLike | number | string
+    unit?: StringNullableFilter<"Product"> | string | null
+    tax_rate?: DecimalNullableFilter<"Product"> | Decimal | DecimalJsLike | number | string | null
+    category?: StringNullableFilter<"Product"> | string | null
+    image?: StringNullableFilter<"Product"> | string | null
+    created_at?: DateTimeFilter<"Product"> | Date | string
+    updated_at?: DateTimeFilter<"Product"> | Date | string
+    deleted_at?: DateTimeNullableFilter<"Product"> | Date | string | null
   }
 
   export type ProfileUpsertWithoutUserInput = {
@@ -20973,117 +21076,6 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     bank_accounts?: BankAccountUncheckedUpdateManyWithoutProfileNestedInput
     e_wallets?: EWalletUncheckedUpdateManyWithoutProfileNestedInput
-  }
-
-  export type ClientUpsertWithWhereUniqueWithoutUserInput = {
-    where: ClientWhereUniqueInput
-    update: XOR<ClientUpdateWithoutUserInput, ClientUncheckedUpdateWithoutUserInput>
-    create: XOR<ClientCreateWithoutUserInput, ClientUncheckedCreateWithoutUserInput>
-  }
-
-  export type ClientUpdateWithWhereUniqueWithoutUserInput = {
-    where: ClientWhereUniqueInput
-    data: XOR<ClientUpdateWithoutUserInput, ClientUncheckedUpdateWithoutUserInput>
-  }
-
-  export type ClientUpdateManyWithWhereWithoutUserInput = {
-    where: ClientScalarWhereInput
-    data: XOR<ClientUpdateManyMutationInput, ClientUncheckedUpdateManyWithoutUserInput>
-  }
-
-  export type ClientScalarWhereInput = {
-    AND?: ClientScalarWhereInput | ClientScalarWhereInput[]
-    OR?: ClientScalarWhereInput[]
-    NOT?: ClientScalarWhereInput | ClientScalarWhereInput[]
-    client_id?: IntFilter<"Client"> | number
-    user_id?: IntFilter<"Client"> | number
-    name?: StringFilter<"Client"> | string
-    email?: StringFilter<"Client"> | string
-    phone?: StringNullableFilter<"Client"> | string | null
-    address?: StringNullableFilter<"Client"> | string | null
-    city?: StringNullableFilter<"Client"> | string | null
-    state?: StringNullableFilter<"Client"> | string | null
-    postal_code?: StringNullableFilter<"Client"> | string | null
-    country?: StringNullableFilter<"Client"> | string | null
-    company_name?: StringNullableFilter<"Client"> | string | null
-    payment_preference?: StringNullableFilter<"Client"> | string | null
-    notes?: StringNullableFilter<"Client"> | string | null
-    created_at?: DateTimeFilter<"Client"> | Date | string
-    updated_at?: DateTimeFilter<"Client"> | Date | string
-    deleted_at?: DateTimeNullableFilter<"Client"> | Date | string | null
-  }
-
-  export type ProductUpsertWithWhereUniqueWithoutUserInput = {
-    where: ProductWhereUniqueInput
-    update: XOR<ProductUpdateWithoutUserInput, ProductUncheckedUpdateWithoutUserInput>
-    create: XOR<ProductCreateWithoutUserInput, ProductUncheckedCreateWithoutUserInput>
-  }
-
-  export type ProductUpdateWithWhereUniqueWithoutUserInput = {
-    where: ProductWhereUniqueInput
-    data: XOR<ProductUpdateWithoutUserInput, ProductUncheckedUpdateWithoutUserInput>
-  }
-
-  export type ProductUpdateManyWithWhereWithoutUserInput = {
-    where: ProductScalarWhereInput
-    data: XOR<ProductUpdateManyMutationInput, ProductUncheckedUpdateManyWithoutUserInput>
-  }
-
-  export type ProductScalarWhereInput = {
-    AND?: ProductScalarWhereInput | ProductScalarWhereInput[]
-    OR?: ProductScalarWhereInput[]
-    NOT?: ProductScalarWhereInput | ProductScalarWhereInput[]
-    product_id?: IntFilter<"Product"> | number
-    user_id?: IntFilter<"Product"> | number
-    name?: StringFilter<"Product"> | string
-    description?: StringNullableFilter<"Product"> | string | null
-    price?: DecimalFilter<"Product"> | Decimal | DecimalJsLike | number | string
-    unit?: StringNullableFilter<"Product"> | string | null
-    tax_rate?: DecimalNullableFilter<"Product"> | Decimal | DecimalJsLike | number | string | null
-    category?: StringNullableFilter<"Product"> | string | null
-    image?: StringNullableFilter<"Product"> | string | null
-    created_at?: DateTimeFilter<"Product"> | Date | string
-    updated_at?: DateTimeFilter<"Product"> | Date | string
-    deleted_at?: DateTimeNullableFilter<"Product"> | Date | string | null
-  }
-
-  export type InvoiceUpsertWithWhereUniqueWithoutUserInput = {
-    where: InvoiceWhereUniqueInput
-    update: XOR<InvoiceUpdateWithoutUserInput, InvoiceUncheckedUpdateWithoutUserInput>
-    create: XOR<InvoiceCreateWithoutUserInput, InvoiceUncheckedCreateWithoutUserInput>
-  }
-
-  export type InvoiceUpdateWithWhereUniqueWithoutUserInput = {
-    where: InvoiceWhereUniqueInput
-    data: XOR<InvoiceUpdateWithoutUserInput, InvoiceUncheckedUpdateWithoutUserInput>
-  }
-
-  export type InvoiceUpdateManyWithWhereWithoutUserInput = {
-    where: InvoiceScalarWhereInput
-    data: XOR<InvoiceUpdateManyMutationInput, InvoiceUncheckedUpdateManyWithoutUserInput>
-  }
-
-  export type InvoiceScalarWhereInput = {
-    AND?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
-    OR?: InvoiceScalarWhereInput[]
-    NOT?: InvoiceScalarWhereInput | InvoiceScalarWhereInput[]
-    invoice_id?: IntFilter<"Invoice"> | number
-    user_id?: IntFilter<"Invoice"> | number
-    client_id?: IntFilter<"Invoice"> | number
-    invoice_number?: StringFilter<"Invoice"> | string
-    issue_date?: DateTimeFilter<"Invoice"> | Date | string
-    due_date?: DateTimeFilter<"Invoice"> | Date | string
-    status?: EnumInvoiceStatusFilter<"Invoice"> | $Enums.InvoiceStatus
-    subtotal?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
-    discount_amount?: DecimalNullableFilter<"Invoice"> | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFilter<"Invoice"> | Decimal | DecimalJsLike | number | string
-    notes?: StringNullableFilter<"Invoice"> | string | null
-    terms?: StringNullableFilter<"Invoice"> | string | null
-    created_at?: DateTimeFilter<"Invoice"> | Date | string
-    updated_at?: DateTimeFilter<"Invoice"> | Date | string
-    deleted_at?: DateTimeNullableFilter<"Invoice"> | Date | string | null
-    source_recurring_id?: IntNullableFilter<"Invoice"> | number | null
   }
 
   export type RecurringInvoiceUpsertWithWhereUniqueWithoutUserInput = {
@@ -21197,8 +21189,8 @@ export namespace Prisma {
     verify_token?: string | null
     password_reset_token?: string | null
     clients?: ClientCreateNestedManyWithoutUserInput
-    products?: ProductCreateNestedManyWithoutUserInput
     invoices?: InvoiceCreateNestedManyWithoutUserInput
+    products?: ProductCreateNestedManyWithoutUserInput
     RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
   }
 
@@ -21219,8 +21211,8 @@ export namespace Prisma {
     verify_token?: string | null
     password_reset_token?: string | null
     clients?: ClientUncheckedCreateNestedManyWithoutUserInput
-    products?: ProductUncheckedCreateNestedManyWithoutUserInput
     invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    products?: ProductUncheckedCreateNestedManyWithoutUserInput
     RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
   }
 
@@ -21316,8 +21308,8 @@ export namespace Prisma {
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
     clients?: ClientUpdateManyWithoutUserNestedInput
-    products?: ProductUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUpdateManyWithoutUserNestedInput
+    products?: ProductUpdateManyWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
   }
 
@@ -21338,8 +21330,8 @@ export namespace Prisma {
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
     clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
-    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
   }
 
@@ -21388,8 +21380,8 @@ export namespace Prisma {
     reference?: string | null
     notes?: string | null
     created_at?: Date | string
-    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
     EWallet?: EWalletCreateNestedOneWithoutPaymentsInput
+    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateWithoutBankAccountInput = {
@@ -21535,8 +21527,8 @@ export namespace Prisma {
     reference?: string | null
     notes?: string | null
     created_at?: Date | string
-    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
     BankAccount?: BankAccountCreateNestedOneWithoutPaymentsInput
+    invoice: InvoiceCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateWithoutEWalletInput = {
@@ -21636,9 +21628,9 @@ export namespace Prisma {
     deleted_at?: Date | string | null
     verify_token?: string | null
     password_reset_token?: string | null
-    profile?: ProfileCreateNestedOneWithoutUserInput
-    products?: ProductCreateNestedManyWithoutUserInput
     invoices?: InvoiceCreateNestedManyWithoutUserInput
+    products?: ProductCreateNestedManyWithoutUserInput
+    profile?: ProfileCreateNestedOneWithoutUserInput
     RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
   }
 
@@ -21658,9 +21650,9 @@ export namespace Prisma {
     deleted_at?: Date | string | null
     verify_token?: string | null
     password_reset_token?: string | null
-    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
-    products?: ProductUncheckedCreateNestedManyWithoutUserInput
     invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    products?: ProductUncheckedCreateNestedManyWithoutUserInput
+    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
     RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
   }
 
@@ -21683,10 +21675,10 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
+    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
     user: UserCreateNestedOneWithoutInvoicesInput
     items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
     payments?: PaymentCreateNestedManyWithoutInvoiceInput
-    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
   }
 
   export type InvoiceUncheckedCreateWithoutClientInput = {
@@ -21729,9 +21721,9 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
+    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
     user: UserCreateNestedOneWithoutRecurringInvoiceInput
     items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
-    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
   }
 
   export type RecurringInvoiceUncheckedCreateWithoutClientInput = {
@@ -21745,8 +21737,8 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
     generated_invoices?: InvoiceUncheckedCreateNestedManyWithoutSource_recurringInput
+    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
   }
 
   export type RecurringInvoiceCreateOrConnectWithoutClientInput = {
@@ -21785,9 +21777,9 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUpdateOneWithoutUserNestedInput
-    products?: ProductUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUpdateManyWithoutUserNestedInput
+    products?: ProductUpdateManyWithoutUserNestedInput
+    profile?: ProfileUpdateOneWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
   }
 
@@ -21807,9 +21799,9 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     verify_token?: NullableStringFieldUpdateOperationsInput | string | null
     password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
-    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
     invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
+    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
     RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
   }
 
@@ -21845,54 +21837,6 @@ export namespace Prisma {
     data: XOR<RecurringInvoiceUpdateManyMutationInput, RecurringInvoiceUncheckedUpdateManyWithoutClientInput>
   }
 
-  export type UserCreateWithoutProductsInput = {
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileCreateNestedOneWithoutUserInput
-    clients?: ClientCreateNestedManyWithoutUserInput
-    invoices?: InvoiceCreateNestedManyWithoutUserInput
-    RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
-  }
-
-  export type UserUncheckedCreateWithoutProductsInput = {
-    user_id?: number
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
-    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
-    invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
-    RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
-  }
-
-  export type UserCreateOrConnectWithoutProductsInput = {
-    where: UserWhereUniqueInput
-    create: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
-  }
-
   export type InvoiceItemCreateWithoutProductInput = {
     description?: string | null
     quantity: number
@@ -21924,6 +21868,54 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type UserCreateWithoutProductsInput = {
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientCreateNestedManyWithoutUserInput
+    invoices?: InvoiceCreateNestedManyWithoutUserInput
+    profile?: ProfileCreateNestedOneWithoutUserInput
+    RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
+  }
+
+  export type UserUncheckedCreateWithoutProductsInput = {
+    user_id?: number
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
+    invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
+    RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
+  }
+
+  export type UserCreateOrConnectWithoutProductsInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
+  }
+
   export type RecurringInvoiceItemCreateWithoutProductInput = {
     description?: string | null
     quantity: number
@@ -21949,60 +21941,6 @@ export namespace Prisma {
   export type RecurringInvoiceItemCreateManyProductInputEnvelope = {
     data: RecurringInvoiceItemCreateManyProductInput | RecurringInvoiceItemCreateManyProductInput[]
     skipDuplicates?: boolean
-  }
-
-  export type UserUpsertWithoutProductsInput = {
-    update: XOR<UserUpdateWithoutProductsInput, UserUncheckedUpdateWithoutProductsInput>
-    create: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
-    where?: UserWhereInput
-  }
-
-  export type UserUpdateToOneWithWhereWithoutProductsInput = {
-    where?: UserWhereInput
-    data: XOR<UserUpdateWithoutProductsInput, UserUncheckedUpdateWithoutProductsInput>
-  }
-
-  export type UserUpdateWithoutProductsInput = {
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUpdateOneWithoutUserNestedInput
-    clients?: ClientUpdateManyWithoutUserNestedInput
-    invoices?: InvoiceUpdateManyWithoutUserNestedInput
-    RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
-  }
-
-  export type UserUncheckedUpdateWithoutProductsInput = {
-    user_id?: IntFieldUpdateOperationsInput | number
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
-    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
-    invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
-    RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type InvoiceItemUpsertWithWhereUniqueWithoutProductInput = {
@@ -22036,6 +21974,60 @@ export namespace Prisma {
     amount?: DecimalFilter<"InvoiceItem"> | Decimal | DecimalJsLike | number | string
   }
 
+  export type UserUpsertWithoutProductsInput = {
+    update: XOR<UserUpdateWithoutProductsInput, UserUncheckedUpdateWithoutProductsInput>
+    create: XOR<UserCreateWithoutProductsInput, UserUncheckedCreateWithoutProductsInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutProductsInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutProductsInput, UserUncheckedUpdateWithoutProductsInput>
+  }
+
+  export type UserUpdateWithoutProductsInput = {
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUpdateManyWithoutUserNestedInput
+    invoices?: InvoiceUpdateManyWithoutUserNestedInput
+    profile?: ProfileUpdateOneWithoutUserNestedInput
+    RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutProductsInput = {
+    user_id?: IntFieldUpdateOperationsInput | number
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
+    invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
+    RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
+  }
+
   export type RecurringInvoiceItemUpsertWithWhereUniqueWithoutProductInput = {
     where: RecurringInvoiceItemWhereUniqueInput
     update: XOR<RecurringInvoiceItemUpdateWithoutProductInput, RecurringInvoiceItemUncheckedUpdateWithoutProductInput>
@@ -22063,54 +22055,6 @@ export namespace Prisma {
     quantity?: IntFilter<"RecurringInvoiceItem"> | number
     unit_price?: DecimalFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string
     tax_rate?: DecimalNullableFilter<"RecurringInvoiceItem"> | Decimal | DecimalJsLike | number | string | null
-  }
-
-  export type UserCreateWithoutInvoicesInput = {
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileCreateNestedOneWithoutUserInput
-    clients?: ClientCreateNestedManyWithoutUserInput
-    products?: ProductCreateNestedManyWithoutUserInput
-    RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
-  }
-
-  export type UserUncheckedCreateWithoutInvoicesInput = {
-    user_id?: number
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
-    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
-    products?: ProductUncheckedCreateNestedManyWithoutUserInput
-    RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
-  }
-
-  export type UserCreateOrConnectWithoutInvoicesInput = {
-    where: UserWhereUniqueInput
-    create: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
   }
 
   export type ClientCreateWithoutInvoicesInput = {
@@ -22157,6 +22101,88 @@ export namespace Prisma {
     create: XOR<ClientCreateWithoutInvoicesInput, ClientUncheckedCreateWithoutInvoicesInput>
   }
 
+  export type RecurringInvoiceCreateWithoutGenerated_invoicesInput = {
+    pattern: $Enums.RecurringPattern
+    next_invoice_date: Date | string
+    start_date?: Date | string
+    end_date?: Date | string | null
+    is_active?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
+    user: UserCreateNestedOneWithoutRecurringInvoiceInput
+    items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
+  }
+
+  export type RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput = {
+    id?: number
+    user_id: number
+    client_id: number
+    pattern: $Enums.RecurringPattern
+    next_invoice_date: Date | string
+    start_date?: Date | string
+    end_date?: Date | string | null
+    is_active?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
+  }
+
+  export type RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput = {
+    where: RecurringInvoiceWhereUniqueInput
+    create: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
+  }
+
+  export type UserCreateWithoutInvoicesInput = {
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientCreateNestedManyWithoutUserInput
+    products?: ProductCreateNestedManyWithoutUserInput
+    profile?: ProfileCreateNestedOneWithoutUserInput
+    RecurringInvoice?: RecurringInvoiceCreateNestedManyWithoutUserInput
+  }
+
+  export type UserUncheckedCreateWithoutInvoicesInput = {
+    user_id?: number
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
+    products?: ProductUncheckedCreateNestedManyWithoutUserInput
+    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
+    RecurringInvoice?: RecurringInvoiceUncheckedCreateNestedManyWithoutUserInput
+  }
+
+  export type UserCreateOrConnectWithoutInvoicesInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
+  }
+
   export type InvoiceItemCreateWithoutInvoiceInput = {
     description?: string | null
     quantity: number
@@ -22195,8 +22221,8 @@ export namespace Prisma {
     reference?: string | null
     notes?: string | null
     created_at?: Date | string
-    EWallet?: EWalletCreateNestedOneWithoutPaymentsInput
     BankAccount?: BankAccountCreateNestedOneWithoutPaymentsInput
+    EWallet?: EWalletCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateWithoutInvoiceInput = {
@@ -22219,94 +22245,6 @@ export namespace Prisma {
   export type PaymentCreateManyInvoiceInputEnvelope = {
     data: PaymentCreateManyInvoiceInput | PaymentCreateManyInvoiceInput[]
     skipDuplicates?: boolean
-  }
-
-  export type RecurringInvoiceCreateWithoutGenerated_invoicesInput = {
-    pattern: $Enums.RecurringPattern
-    next_invoice_date: Date | string
-    start_date?: Date | string
-    end_date?: Date | string | null
-    is_active?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutRecurringInvoiceInput
-    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
-    items?: RecurringInvoiceItemCreateNestedManyWithoutRecurring_invoiceInput
-  }
-
-  export type RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput = {
-    id?: number
-    user_id: number
-    client_id: number
-    pattern: $Enums.RecurringPattern
-    next_invoice_date: Date | string
-    start_date?: Date | string
-    end_date?: Date | string | null
-    is_active?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    items?: RecurringInvoiceItemUncheckedCreateNestedManyWithoutRecurring_invoiceInput
-  }
-
-  export type RecurringInvoiceCreateOrConnectWithoutGenerated_invoicesInput = {
-    where: RecurringInvoiceWhereUniqueInput
-    create: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
-  }
-
-  export type UserUpsertWithoutInvoicesInput = {
-    update: XOR<UserUpdateWithoutInvoicesInput, UserUncheckedUpdateWithoutInvoicesInput>
-    create: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
-    where?: UserWhereInput
-  }
-
-  export type UserUpdateToOneWithWhereWithoutInvoicesInput = {
-    where?: UserWhereInput
-    data: XOR<UserUpdateWithoutInvoicesInput, UserUncheckedUpdateWithoutInvoicesInput>
-  }
-
-  export type UserUpdateWithoutInvoicesInput = {
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUpdateOneWithoutUserNestedInput
-    clients?: ClientUpdateManyWithoutUserNestedInput
-    products?: ProductUpdateManyWithoutUserNestedInput
-    RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
-  }
-
-  export type UserUncheckedUpdateWithoutInvoicesInput = {
-    user_id?: IntFieldUpdateOperationsInput | number
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
-    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
-    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
-    RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type ClientUpsertWithoutInvoicesInput = {
@@ -22359,6 +22297,100 @@ export namespace Prisma {
     RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutClientNestedInput
   }
 
+  export type RecurringInvoiceUpsertWithoutGenerated_invoicesInput = {
+    update: XOR<RecurringInvoiceUpdateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
+    create: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
+    where?: RecurringInvoiceWhereInput
+  }
+
+  export type RecurringInvoiceUpdateToOneWithWhereWithoutGenerated_invoicesInput = {
+    where?: RecurringInvoiceWhereInput
+    data: XOR<RecurringInvoiceUpdateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
+  }
+
+  export type RecurringInvoiceUpdateWithoutGenerated_invoicesInput = {
+    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
+    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    is_active?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+    items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
+  }
+
+  export type RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    user_id?: IntFieldUpdateOperationsInput | number
+    client_id?: IntFieldUpdateOperationsInput | number
+    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
+    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    is_active?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
+  }
+
+  export type UserUpsertWithoutInvoicesInput = {
+    update: XOR<UserUpdateWithoutInvoicesInput, UserUncheckedUpdateWithoutInvoicesInput>
+    create: XOR<UserCreateWithoutInvoicesInput, UserUncheckedCreateWithoutInvoicesInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutInvoicesInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutInvoicesInput, UserUncheckedUpdateWithoutInvoicesInput>
+  }
+
+  export type UserUpdateWithoutInvoicesInput = {
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUpdateManyWithoutUserNestedInput
+    products?: ProductUpdateManyWithoutUserNestedInput
+    profile?: ProfileUpdateOneWithoutUserNestedInput
+    RecurringInvoice?: RecurringInvoiceUpdateManyWithoutUserNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutInvoicesInput = {
+    user_id?: IntFieldUpdateOperationsInput | number
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
+    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
+    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
+    RecurringInvoice?: RecurringInvoiceUncheckedUpdateManyWithoutUserNestedInput
+  }
+
   export type InvoiceItemUpsertWithWhereUniqueWithoutInvoiceInput = {
     where: InvoiceItemWhereUniqueInput
     update: XOR<InvoiceItemUpdateWithoutInvoiceInput, InvoiceItemUncheckedUpdateWithoutInvoiceInput>
@@ -22391,46 +22423,6 @@ export namespace Prisma {
     data: XOR<PaymentUpdateManyMutationInput, PaymentUncheckedUpdateManyWithoutInvoiceInput>
   }
 
-  export type RecurringInvoiceUpsertWithoutGenerated_invoicesInput = {
-    update: XOR<RecurringInvoiceUpdateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
-    create: XOR<RecurringInvoiceCreateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedCreateWithoutGenerated_invoicesInput>
-    where?: RecurringInvoiceWhereInput
-  }
-
-  export type RecurringInvoiceUpdateToOneWithWhereWithoutGenerated_invoicesInput = {
-    where?: RecurringInvoiceWhereInput
-    data: XOR<RecurringInvoiceUpdateWithoutGenerated_invoicesInput, RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput>
-  }
-
-  export type RecurringInvoiceUpdateWithoutGenerated_invoicesInput = {
-    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
-    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    is_active?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
-  }
-
-  export type RecurringInvoiceUncheckedUpdateWithoutGenerated_invoicesInput = {
-    id?: IntFieldUpdateOperationsInput | number
-    user_id?: IntFieldUpdateOperationsInput | number
-    client_id?: IntFieldUpdateOperationsInput | number
-    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
-    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    is_active?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
-  }
-
   export type InvoiceCreateWithoutItemsInput = {
     invoice_number: string
     issue_date?: Date | string
@@ -22445,10 +22437,10 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutInvoicesInput
     client: ClientCreateNestedOneWithoutInvoicesInput
-    payments?: PaymentCreateNestedManyWithoutInvoiceInput
     source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    user: UserCreateNestedOneWithoutInvoicesInput
+    payments?: PaymentCreateNestedManyWithoutInvoiceInput
   }
 
   export type InvoiceUncheckedCreateWithoutItemsInput = {
@@ -22538,10 +22530,10 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
-    payments?: PaymentUpdateManyWithoutInvoiceNestedInput
     source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
+    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
+    payments?: PaymentUpdateManyWithoutInvoiceNestedInput
   }
 
   export type InvoiceUncheckedUpdateWithoutItemsInput = {
@@ -22607,50 +22599,30 @@ export namespace Prisma {
     RecurringInvoiceItem?: RecurringInvoiceItemUncheckedUpdateManyWithoutProductNestedInput
   }
 
-  export type InvoiceCreateWithoutPaymentsInput = {
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
+  export type BankAccountCreateWithoutPaymentsInput = {
+    bank_name: string
+    account_number: string
+    account_name: string
+    is_primary?: boolean
     created_at?: Date | string
     updated_at?: Date | string
-    deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutInvoicesInput
-    client: ClientCreateNestedOneWithoutInvoicesInput
-    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
-    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    profile: ProfileCreateNestedOneWithoutBank_accountsInput
   }
 
-  export type InvoiceUncheckedCreateWithoutPaymentsInput = {
-    invoice_id?: number
-    user_id: number
-    client_id: number
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
+  export type BankAccountUncheckedCreateWithoutPaymentsInput = {
+    id?: number
+    profile_id: number
+    bank_name: string
+    account_number: string
+    account_name: string
+    is_primary?: boolean
     created_at?: Date | string
     updated_at?: Date | string
-    deleted_at?: Date | string | null
-    source_recurring_id?: number | null
-    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
   }
 
-  export type InvoiceCreateOrConnectWithoutPaymentsInput = {
-    where: InvoiceWhereUniqueInput
-    create: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
+  export type BankAccountCreateOrConnectWithoutPaymentsInput = {
+    where: BankAccountWhereUniqueInput
+    create: XOR<BankAccountCreateWithoutPaymentsInput, BankAccountUncheckedCreateWithoutPaymentsInput>
   }
 
   export type EWalletCreateWithoutPaymentsInput = {
@@ -22679,114 +22651,50 @@ export namespace Prisma {
     create: XOR<EWalletCreateWithoutPaymentsInput, EWalletUncheckedCreateWithoutPaymentsInput>
   }
 
-  export type BankAccountCreateWithoutPaymentsInput = {
-    bank_name: string
-    account_number: string
-    account_name: string
-    is_primary?: boolean
+  export type InvoiceCreateWithoutPaymentsInput = {
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
     created_at?: Date | string
     updated_at?: Date | string
-    profile: ProfileCreateNestedOneWithoutBank_accountsInput
+    deleted_at?: Date | string | null
+    client: ClientCreateNestedOneWithoutInvoicesInput
+    source_recurring?: RecurringInvoiceCreateNestedOneWithoutGenerated_invoicesInput
+    user: UserCreateNestedOneWithoutInvoicesInput
+    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
   }
 
-  export type BankAccountUncheckedCreateWithoutPaymentsInput = {
-    id?: number
-    profile_id: number
-    bank_name: string
-    account_number: string
-    account_name: string
-    is_primary?: boolean
+  export type InvoiceUncheckedCreateWithoutPaymentsInput = {
+    invoice_id?: number
+    user_id: number
+    client_id: number
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
     created_at?: Date | string
     updated_at?: Date | string
+    deleted_at?: Date | string | null
+    source_recurring_id?: number | null
+    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
   }
 
-  export type BankAccountCreateOrConnectWithoutPaymentsInput = {
-    where: BankAccountWhereUniqueInput
-    create: XOR<BankAccountCreateWithoutPaymentsInput, BankAccountUncheckedCreateWithoutPaymentsInput>
-  }
-
-  export type InvoiceUpsertWithoutPaymentsInput = {
-    update: XOR<InvoiceUpdateWithoutPaymentsInput, InvoiceUncheckedUpdateWithoutPaymentsInput>
+  export type InvoiceCreateOrConnectWithoutPaymentsInput = {
+    where: InvoiceWhereUniqueInput
     create: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
-    where?: InvoiceWhereInput
-  }
-
-  export type InvoiceUpdateToOneWithWhereWithoutPaymentsInput = {
-    where?: InvoiceWhereInput
-    data: XOR<InvoiceUpdateWithoutPaymentsInput, InvoiceUncheckedUpdateWithoutPaymentsInput>
-  }
-
-  export type InvoiceUpdateWithoutPaymentsInput = {
-    invoice_number?: StringFieldUpdateOperationsInput | string
-    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
-    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    terms?: NullableStringFieldUpdateOperationsInput | string | null
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
-    client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
-    items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
-    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
-  }
-
-  export type InvoiceUncheckedUpdateWithoutPaymentsInput = {
-    invoice_id?: IntFieldUpdateOperationsInput | number
-    user_id?: IntFieldUpdateOperationsInput | number
-    client_id?: IntFieldUpdateOperationsInput | number
-    invoice_number?: StringFieldUpdateOperationsInput | string
-    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
-    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    terms?: NullableStringFieldUpdateOperationsInput | string | null
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
-    items?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
-  }
-
-  export type EWalletUpsertWithoutPaymentsInput = {
-    update: XOR<EWalletUpdateWithoutPaymentsInput, EWalletUncheckedUpdateWithoutPaymentsInput>
-    create: XOR<EWalletCreateWithoutPaymentsInput, EWalletUncheckedCreateWithoutPaymentsInput>
-    where?: EWalletWhereInput
-  }
-
-  export type EWalletUpdateToOneWithWhereWithoutPaymentsInput = {
-    where?: EWalletWhereInput
-    data: XOR<EWalletUpdateWithoutPaymentsInput, EWalletUncheckedUpdateWithoutPaymentsInput>
-  }
-
-  export type EWalletUpdateWithoutPaymentsInput = {
-    wallet_type?: StringFieldUpdateOperationsInput | string
-    phone_number?: StringFieldUpdateOperationsInput | string
-    account_name?: StringFieldUpdateOperationsInput | string
-    is_primary?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    profile?: ProfileUpdateOneRequiredWithoutE_walletsNestedInput
-  }
-
-  export type EWalletUncheckedUpdateWithoutPaymentsInput = {
-    id?: IntFieldUpdateOperationsInput | number
-    profile_id?: IntFieldUpdateOperationsInput | number
-    wallet_type?: StringFieldUpdateOperationsInput | string
-    phone_number?: StringFieldUpdateOperationsInput | string
-    account_name?: StringFieldUpdateOperationsInput | string
-    is_primary?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type BankAccountUpsertWithoutPaymentsInput = {
@@ -22821,52 +22729,139 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type UserCreateWithoutRecurringInvoiceInput = {
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
+  export type EWalletUpsertWithoutPaymentsInput = {
+    update: XOR<EWalletUpdateWithoutPaymentsInput, EWalletUncheckedUpdateWithoutPaymentsInput>
+    create: XOR<EWalletCreateWithoutPaymentsInput, EWalletUncheckedCreateWithoutPaymentsInput>
+    where?: EWalletWhereInput
+  }
+
+  export type EWalletUpdateToOneWithWhereWithoutPaymentsInput = {
+    where?: EWalletWhereInput
+    data: XOR<EWalletUpdateWithoutPaymentsInput, EWalletUncheckedUpdateWithoutPaymentsInput>
+  }
+
+  export type EWalletUpdateWithoutPaymentsInput = {
+    wallet_type?: StringFieldUpdateOperationsInput | string
+    phone_number?: StringFieldUpdateOperationsInput | string
+    account_name?: StringFieldUpdateOperationsInput | string
+    is_primary?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    profile?: ProfileUpdateOneRequiredWithoutE_walletsNestedInput
+  }
+
+  export type EWalletUncheckedUpdateWithoutPaymentsInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    profile_id?: IntFieldUpdateOperationsInput | number
+    wallet_type?: StringFieldUpdateOperationsInput | string
+    phone_number?: StringFieldUpdateOperationsInput | string
+    account_name?: StringFieldUpdateOperationsInput | string
+    is_primary?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type InvoiceUpsertWithoutPaymentsInput = {
+    update: XOR<InvoiceUpdateWithoutPaymentsInput, InvoiceUncheckedUpdateWithoutPaymentsInput>
+    create: XOR<InvoiceCreateWithoutPaymentsInput, InvoiceUncheckedCreateWithoutPaymentsInput>
+    where?: InvoiceWhereInput
+  }
+
+  export type InvoiceUpdateToOneWithWhereWithoutPaymentsInput = {
+    where?: InvoiceWhereInput
+    data: XOR<InvoiceUpdateWithoutPaymentsInput, InvoiceUncheckedUpdateWithoutPaymentsInput>
+  }
+
+  export type InvoiceUpdateWithoutPaymentsInput = {
+    invoice_number?: StringFieldUpdateOperationsInput | string
+    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    terms?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
+    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
+    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
+    items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
+  }
+
+  export type InvoiceUncheckedUpdateWithoutPaymentsInput = {
+    invoice_id?: IntFieldUpdateOperationsInput | number
+    user_id?: IntFieldUpdateOperationsInput | number
+    client_id?: IntFieldUpdateOperationsInput | number
+    invoice_number?: StringFieldUpdateOperationsInput | string
+    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    terms?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
+    items?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
+  }
+
+  export type InvoiceCreateWithoutSource_recurringInput = {
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileCreateNestedOneWithoutUserInput
-    clients?: ClientCreateNestedManyWithoutUserInput
-    products?: ProductCreateNestedManyWithoutUserInput
-    invoices?: InvoiceCreateNestedManyWithoutUserInput
+    client: ClientCreateNestedOneWithoutInvoicesInput
+    user: UserCreateNestedOneWithoutInvoicesInput
+    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
+    payments?: PaymentCreateNestedManyWithoutInvoiceInput
   }
 
-  export type UserUncheckedCreateWithoutRecurringInvoiceInput = {
-    user_id?: number
-    email: string
-    username?: string | null
-    password?: string | null
-    phone?: string | null
-    first_name?: string | null
-    last_name?: string | null
-    avatar?: string | null
-    is_google?: boolean
-    verified?: boolean
+  export type InvoiceUncheckedCreateWithoutSource_recurringInput = {
+    invoice_id?: number
+    user_id: number
+    client_id: number
+    invoice_number: string
+    issue_date?: Date | string
+    due_date: Date | string
+    status?: $Enums.InvoiceStatus
+    subtotal: Decimal | DecimalJsLike | number | string
+    tax_amount: Decimal | DecimalJsLike | number | string
+    discount_amount?: Decimal | DecimalJsLike | number | string | null
+    total_amount: Decimal | DecimalJsLike | number | string
+    notes?: string | null
+    terms?: string | null
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    verify_token?: string | null
-    password_reset_token?: string | null
-    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
-    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
-    products?: ProductUncheckedCreateNestedManyWithoutUserInput
-    invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
+    payments?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
   }
 
-  export type UserCreateOrConnectWithoutRecurringInvoiceInput = {
-    where: UserWhereUniqueInput
-    create: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
+  export type InvoiceCreateOrConnectWithoutSource_recurringInput = {
+    where: InvoiceWhereUniqueInput
+    create: XOR<InvoiceCreateWithoutSource_recurringInput, InvoiceUncheckedCreateWithoutSource_recurringInput>
+  }
+
+  export type InvoiceCreateManySource_recurringInputEnvelope = {
+    data: InvoiceCreateManySource_recurringInput | InvoiceCreateManySource_recurringInput[]
+    skipDuplicates?: boolean
   }
 
   export type ClientCreateWithoutRecurringInvoiceInput = {
@@ -22913,6 +22908,54 @@ export namespace Prisma {
     create: XOR<ClientCreateWithoutRecurringInvoiceInput, ClientUncheckedCreateWithoutRecurringInvoiceInput>
   }
 
+  export type UserCreateWithoutRecurringInvoiceInput = {
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientCreateNestedManyWithoutUserInput
+    invoices?: InvoiceCreateNestedManyWithoutUserInput
+    products?: ProductCreateNestedManyWithoutUserInput
+    profile?: ProfileCreateNestedOneWithoutUserInput
+  }
+
+  export type UserUncheckedCreateWithoutRecurringInvoiceInput = {
+    user_id?: number
+    email: string
+    username?: string | null
+    password?: string | null
+    phone?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    avatar?: string | null
+    is_google?: boolean
+    verified?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    verify_token?: string | null
+    password_reset_token?: string | null
+    clients?: ClientUncheckedCreateNestedManyWithoutUserInput
+    invoices?: InvoiceUncheckedCreateNestedManyWithoutUserInput
+    products?: ProductUncheckedCreateNestedManyWithoutUserInput
+    profile?: ProfileUncheckedCreateNestedOneWithoutUserInput
+  }
+
+  export type UserCreateOrConnectWithoutRecurringInvoiceInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
+  }
+
   export type RecurringInvoiceItemCreateWithoutRecurring_invoiceInput = {
     description?: string | null
     quantity: number
@@ -22940,109 +22983,20 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
-  export type InvoiceCreateWithoutSource_recurringInput = {
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutInvoicesInput
-    client: ClientCreateNestedOneWithoutInvoicesInput
-    items?: InvoiceItemCreateNestedManyWithoutInvoiceInput
-    payments?: PaymentCreateNestedManyWithoutInvoiceInput
-  }
-
-  export type InvoiceUncheckedCreateWithoutSource_recurringInput = {
-    invoice_id?: number
-    user_id: number
-    client_id: number
-    invoice_number: string
-    issue_date?: Date | string
-    due_date: Date | string
-    status?: $Enums.InvoiceStatus
-    subtotal: Decimal | DecimalJsLike | number | string
-    tax_amount: Decimal | DecimalJsLike | number | string
-    discount_amount?: Decimal | DecimalJsLike | number | string | null
-    total_amount: Decimal | DecimalJsLike | number | string
-    notes?: string | null
-    terms?: string | null
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    items?: InvoiceItemUncheckedCreateNestedManyWithoutInvoiceInput
-    payments?: PaymentUncheckedCreateNestedManyWithoutInvoiceInput
-  }
-
-  export type InvoiceCreateOrConnectWithoutSource_recurringInput = {
+  export type InvoiceUpsertWithWhereUniqueWithoutSource_recurringInput = {
     where: InvoiceWhereUniqueInput
+    update: XOR<InvoiceUpdateWithoutSource_recurringInput, InvoiceUncheckedUpdateWithoutSource_recurringInput>
     create: XOR<InvoiceCreateWithoutSource_recurringInput, InvoiceUncheckedCreateWithoutSource_recurringInput>
   }
 
-  export type InvoiceCreateManySource_recurringInputEnvelope = {
-    data: InvoiceCreateManySource_recurringInput | InvoiceCreateManySource_recurringInput[]
-    skipDuplicates?: boolean
+  export type InvoiceUpdateWithWhereUniqueWithoutSource_recurringInput = {
+    where: InvoiceWhereUniqueInput
+    data: XOR<InvoiceUpdateWithoutSource_recurringInput, InvoiceUncheckedUpdateWithoutSource_recurringInput>
   }
 
-  export type UserUpsertWithoutRecurringInvoiceInput = {
-    update: XOR<UserUpdateWithoutRecurringInvoiceInput, UserUncheckedUpdateWithoutRecurringInvoiceInput>
-    create: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
-    where?: UserWhereInput
-  }
-
-  export type UserUpdateToOneWithWhereWithoutRecurringInvoiceInput = {
-    where?: UserWhereInput
-    data: XOR<UserUpdateWithoutRecurringInvoiceInput, UserUncheckedUpdateWithoutRecurringInvoiceInput>
-  }
-
-  export type UserUpdateWithoutRecurringInvoiceInput = {
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUpdateOneWithoutUserNestedInput
-    clients?: ClientUpdateManyWithoutUserNestedInput
-    products?: ProductUpdateManyWithoutUserNestedInput
-    invoices?: InvoiceUpdateManyWithoutUserNestedInput
-  }
-
-  export type UserUncheckedUpdateWithoutRecurringInvoiceInput = {
-    user_id?: IntFieldUpdateOperationsInput | number
-    email?: StringFieldUpdateOperationsInput | string
-    username?: NullableStringFieldUpdateOperationsInput | string | null
-    password?: NullableStringFieldUpdateOperationsInput | string | null
-    phone?: NullableStringFieldUpdateOperationsInput | string | null
-    first_name?: NullableStringFieldUpdateOperationsInput | string | null
-    last_name?: NullableStringFieldUpdateOperationsInput | string | null
-    avatar?: NullableStringFieldUpdateOperationsInput | string | null
-    is_google?: BoolFieldUpdateOperationsInput | boolean
-    verified?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
-    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
-    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
-    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
-    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
-    invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+  export type InvoiceUpdateManyWithWhereWithoutSource_recurringInput = {
+    where: InvoiceScalarWhereInput
+    data: XOR<InvoiceUpdateManyMutationInput, InvoiceUncheckedUpdateManyWithoutSource_recurringInput>
   }
 
   export type ClientUpsertWithoutRecurringInvoiceInput = {
@@ -23095,6 +23049,60 @@ export namespace Prisma {
     invoices?: InvoiceUncheckedUpdateManyWithoutClientNestedInput
   }
 
+  export type UserUpsertWithoutRecurringInvoiceInput = {
+    update: XOR<UserUpdateWithoutRecurringInvoiceInput, UserUncheckedUpdateWithoutRecurringInvoiceInput>
+    create: XOR<UserCreateWithoutRecurringInvoiceInput, UserUncheckedCreateWithoutRecurringInvoiceInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutRecurringInvoiceInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutRecurringInvoiceInput, UserUncheckedUpdateWithoutRecurringInvoiceInput>
+  }
+
+  export type UserUpdateWithoutRecurringInvoiceInput = {
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUpdateManyWithoutUserNestedInput
+    invoices?: InvoiceUpdateManyWithoutUserNestedInput
+    products?: ProductUpdateManyWithoutUserNestedInput
+    profile?: ProfileUpdateOneWithoutUserNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutRecurringInvoiceInput = {
+    user_id?: IntFieldUpdateOperationsInput | number
+    email?: StringFieldUpdateOperationsInput | string
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    first_name?: NullableStringFieldUpdateOperationsInput | string | null
+    last_name?: NullableStringFieldUpdateOperationsInput | string | null
+    avatar?: NullableStringFieldUpdateOperationsInput | string | null
+    is_google?: BoolFieldUpdateOperationsInput | boolean
+    verified?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    verify_token?: NullableStringFieldUpdateOperationsInput | string | null
+    password_reset_token?: NullableStringFieldUpdateOperationsInput | string | null
+    clients?: ClientUncheckedUpdateManyWithoutUserNestedInput
+    invoices?: InvoiceUncheckedUpdateManyWithoutUserNestedInput
+    products?: ProductUncheckedUpdateManyWithoutUserNestedInput
+    profile?: ProfileUncheckedUpdateOneWithoutUserNestedInput
+  }
+
   export type RecurringInvoiceItemUpsertWithWhereUniqueWithoutRecurring_invoiceInput = {
     where: RecurringInvoiceItemWhereUniqueInput
     update: XOR<RecurringInvoiceItemUpdateWithoutRecurring_invoiceInput, RecurringInvoiceItemUncheckedUpdateWithoutRecurring_invoiceInput>
@@ -23111,56 +23119,6 @@ export namespace Prisma {
     data: XOR<RecurringInvoiceItemUpdateManyMutationInput, RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceInput>
   }
 
-  export type InvoiceUpsertWithWhereUniqueWithoutSource_recurringInput = {
-    where: InvoiceWhereUniqueInput
-    update: XOR<InvoiceUpdateWithoutSource_recurringInput, InvoiceUncheckedUpdateWithoutSource_recurringInput>
-    create: XOR<InvoiceCreateWithoutSource_recurringInput, InvoiceUncheckedCreateWithoutSource_recurringInput>
-  }
-
-  export type InvoiceUpdateWithWhereUniqueWithoutSource_recurringInput = {
-    where: InvoiceWhereUniqueInput
-    data: XOR<InvoiceUpdateWithoutSource_recurringInput, InvoiceUncheckedUpdateWithoutSource_recurringInput>
-  }
-
-  export type InvoiceUpdateManyWithWhereWithoutSource_recurringInput = {
-    where: InvoiceScalarWhereInput
-    data: XOR<InvoiceUpdateManyMutationInput, InvoiceUncheckedUpdateManyWithoutSource_recurringInput>
-  }
-
-  export type RecurringInvoiceCreateWithoutItemsInput = {
-    pattern: $Enums.RecurringPattern
-    next_invoice_date: Date | string
-    start_date?: Date | string
-    end_date?: Date | string | null
-    is_active?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutRecurringInvoiceInput
-    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
-    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
-  }
-
-  export type RecurringInvoiceUncheckedCreateWithoutItemsInput = {
-    id?: number
-    user_id: number
-    client_id: number
-    pattern: $Enums.RecurringPattern
-    next_invoice_date: Date | string
-    start_date?: Date | string
-    end_date?: Date | string | null
-    is_active?: boolean
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-    generated_invoices?: InvoiceUncheckedCreateNestedManyWithoutSource_recurringInput
-  }
-
-  export type RecurringInvoiceCreateOrConnectWithoutItemsInput = {
-    where: RecurringInvoiceWhereUniqueInput
-    create: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
-  }
-
   export type ProductCreateWithoutRecurringInvoiceItemInput = {
     name: string
     description?: string | null
@@ -23172,8 +23130,8 @@ export namespace Prisma {
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
-    user: UserCreateNestedOneWithoutProductsInput
     invoiceItems?: InvoiceItemCreateNestedManyWithoutProductInput
+    user: UserCreateNestedOneWithoutProductsInput
   }
 
   export type ProductUncheckedCreateWithoutRecurringInvoiceItemInput = {
@@ -23197,44 +23155,38 @@ export namespace Prisma {
     create: XOR<ProductCreateWithoutRecurringInvoiceItemInput, ProductUncheckedCreateWithoutRecurringInvoiceItemInput>
   }
 
-  export type RecurringInvoiceUpsertWithoutItemsInput = {
-    update: XOR<RecurringInvoiceUpdateWithoutItemsInput, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
+  export type RecurringInvoiceCreateWithoutItemsInput = {
+    pattern: $Enums.RecurringPattern
+    next_invoice_date: Date | string
+    start_date?: Date | string
+    end_date?: Date | string | null
+    is_active?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    generated_invoices?: InvoiceCreateNestedManyWithoutSource_recurringInput
+    client: ClientCreateNestedOneWithoutRecurringInvoiceInput
+    user: UserCreateNestedOneWithoutRecurringInvoiceInput
+  }
+
+  export type RecurringInvoiceUncheckedCreateWithoutItemsInput = {
+    id?: number
+    user_id: number
+    client_id: number
+    pattern: $Enums.RecurringPattern
+    next_invoice_date: Date | string
+    start_date?: Date | string
+    end_date?: Date | string | null
+    is_active?: boolean
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
+    generated_invoices?: InvoiceUncheckedCreateNestedManyWithoutSource_recurringInput
+  }
+
+  export type RecurringInvoiceCreateOrConnectWithoutItemsInput = {
+    where: RecurringInvoiceWhereUniqueInput
     create: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
-    where?: RecurringInvoiceWhereInput
-  }
-
-  export type RecurringInvoiceUpdateToOneWithWhereWithoutItemsInput = {
-    where?: RecurringInvoiceWhereInput
-    data: XOR<RecurringInvoiceUpdateWithoutItemsInput, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
-  }
-
-  export type RecurringInvoiceUpdateWithoutItemsInput = {
-    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
-    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    is_active?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
-    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
-  }
-
-  export type RecurringInvoiceUncheckedUpdateWithoutItemsInput = {
-    id?: IntFieldUpdateOperationsInput | number
-    user_id?: IntFieldUpdateOperationsInput | number
-    client_id?: IntFieldUpdateOperationsInput | number
-    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
-    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    is_active?: BoolFieldUpdateOperationsInput | boolean
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    generated_invoices?: InvoiceUncheckedUpdateManyWithoutSource_recurringNestedInput
   }
 
   export type ProductUpsertWithoutRecurringInvoiceItemInput = {
@@ -23259,8 +23211,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutProductsNestedInput
     invoiceItems?: InvoiceItemUpdateManyWithoutProductNestedInput
+    user?: UserUpdateOneRequiredWithoutProductsNestedInput
   }
 
   export type ProductUncheckedUpdateWithoutRecurringInvoiceItemInput = {
@@ -23279,6 +23231,46 @@ export namespace Prisma {
     invoiceItems?: InvoiceItemUncheckedUpdateManyWithoutProductNestedInput
   }
 
+  export type RecurringInvoiceUpsertWithoutItemsInput = {
+    update: XOR<RecurringInvoiceUpdateWithoutItemsInput, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
+    create: XOR<RecurringInvoiceCreateWithoutItemsInput, RecurringInvoiceUncheckedCreateWithoutItemsInput>
+    where?: RecurringInvoiceWhereInput
+  }
+
+  export type RecurringInvoiceUpdateToOneWithWhereWithoutItemsInput = {
+    where?: RecurringInvoiceWhereInput
+    data: XOR<RecurringInvoiceUpdateWithoutItemsInput, RecurringInvoiceUncheckedUpdateWithoutItemsInput>
+  }
+
+  export type RecurringInvoiceUpdateWithoutItemsInput = {
+    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
+    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    is_active?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
+    client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+    user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
+  }
+
+  export type RecurringInvoiceUncheckedUpdateWithoutItemsInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    user_id?: IntFieldUpdateOperationsInput | number
+    client_id?: IntFieldUpdateOperationsInput | number
+    pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
+    next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    start_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    end_date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    is_active?: BoolFieldUpdateOperationsInput | boolean
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    generated_invoices?: InvoiceUncheckedUpdateManyWithoutSource_recurringNestedInput
+  }
+
   export type ClientCreateManyUserInput = {
     client_id?: number
     name: string
@@ -23292,20 +23284,6 @@ export namespace Prisma {
     company_name?: string | null
     payment_preference?: string | null
     notes?: string | null
-    created_at?: Date | string
-    updated_at?: Date | string
-    deleted_at?: Date | string | null
-  }
-
-  export type ProductCreateManyUserInput = {
-    product_id?: number
-    name: string
-    description?: string | null
-    price: Decimal | DecimalJsLike | number | string
-    unit?: string | null
-    tax_rate?: Decimal | DecimalJsLike | number | string | null
-    category?: string | null
-    image?: string | null
     created_at?: Date | string
     updated_at?: Date | string
     deleted_at?: Date | string | null
@@ -23328,6 +23306,20 @@ export namespace Prisma {
     updated_at?: Date | string
     deleted_at?: Date | string | null
     source_recurring_id?: number | null
+  }
+
+  export type ProductCreateManyUserInput = {
+    product_id?: number
+    name: string
+    description?: string | null
+    price: Decimal | DecimalJsLike | number | string
+    unit?: string | null
+    tax_rate?: Decimal | DecimalJsLike | number | string | null
+    category?: string | null
+    image?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+    deleted_at?: Date | string | null
   }
 
   export type RecurringInvoiceCreateManyUserInput = {
@@ -23400,6 +23392,66 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
+  export type InvoiceUpdateWithoutUserInput = {
+    invoice_number?: StringFieldUpdateOperationsInput | string
+    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    terms?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
+    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
+    items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
+    payments?: PaymentUpdateManyWithoutInvoiceNestedInput
+  }
+
+  export type InvoiceUncheckedUpdateWithoutUserInput = {
+    invoice_id?: IntFieldUpdateOperationsInput | number
+    client_id?: IntFieldUpdateOperationsInput | number
+    invoice_number?: StringFieldUpdateOperationsInput | string
+    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    terms?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
+    items?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
+    payments?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput
+  }
+
+  export type InvoiceUncheckedUpdateManyWithoutUserInput = {
+    invoice_id?: IntFieldUpdateOperationsInput | number
+    client_id?: IntFieldUpdateOperationsInput | number
+    invoice_number?: StringFieldUpdateOperationsInput | string
+    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    terms?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
+  }
+
   export type ProductUpdateWithoutUserInput = {
     name?: StringFieldUpdateOperationsInput | string
     description?: NullableStringFieldUpdateOperationsInput | string | null
@@ -23445,66 +23497,6 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
-  export type InvoiceUpdateWithoutUserInput = {
-    invoice_number?: StringFieldUpdateOperationsInput | string
-    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
-    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    terms?: NullableStringFieldUpdateOperationsInput | string | null
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
-    items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
-    payments?: PaymentUpdateManyWithoutInvoiceNestedInput
-    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
-  }
-
-  export type InvoiceUncheckedUpdateWithoutUserInput = {
-    invoice_id?: IntFieldUpdateOperationsInput | number
-    client_id?: IntFieldUpdateOperationsInput | number
-    invoice_number?: StringFieldUpdateOperationsInput | string
-    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
-    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    terms?: NullableStringFieldUpdateOperationsInput | string | null
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
-    items?: InvoiceItemUncheckedUpdateManyWithoutInvoiceNestedInput
-    payments?: PaymentUncheckedUpdateManyWithoutInvoiceNestedInput
-  }
-
-  export type InvoiceUncheckedUpdateManyWithoutUserInput = {
-    invoice_id?: IntFieldUpdateOperationsInput | number
-    client_id?: IntFieldUpdateOperationsInput | number
-    invoice_number?: StringFieldUpdateOperationsInput | string
-    issue_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    due_date?: DateTimeFieldUpdateOperationsInput | Date | string
-    status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
-    subtotal?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    discount_amount?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    total_amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    terms?: NullableStringFieldUpdateOperationsInput | string | null
-    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    source_recurring_id?: NullableIntFieldUpdateOperationsInput | number | null
-  }
-
   export type RecurringInvoiceUpdateWithoutUserInput = {
     pattern?: EnumRecurringPatternFieldUpdateOperationsInput | $Enums.RecurringPattern
     next_invoice_date?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -23514,9 +23506,9 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
     client?: ClientUpdateOneRequiredWithoutRecurringInvoiceNestedInput
     items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
-    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
   }
 
   export type RecurringInvoiceUncheckedUpdateWithoutUserInput = {
@@ -23530,8 +23522,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
     generated_invoices?: InvoiceUncheckedUpdateManyWithoutSource_recurringNestedInput
+    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
   }
 
   export type RecurringInvoiceUncheckedUpdateManyWithoutUserInput = {
@@ -23648,8 +23640,8 @@ export namespace Prisma {
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
     EWallet?: EWalletUpdateOneWithoutPaymentsNestedInput
+    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutBankAccountInput = {
@@ -23695,8 +23687,8 @@ export namespace Prisma {
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
     BankAccount?: BankAccountUpdateOneWithoutPaymentsNestedInput
+    invoice?: InvoiceUpdateOneRequiredWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutEWalletInput = {
@@ -23769,10 +23761,10 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
     user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
     payments?: PaymentUpdateManyWithoutInvoiceNestedInput
-    source_recurring?: RecurringInvoiceUpdateOneWithoutGenerated_invoicesNestedInput
   }
 
   export type InvoiceUncheckedUpdateWithoutClientInput = {
@@ -23824,9 +23816,9 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
     user?: UserUpdateOneRequiredWithoutRecurringInvoiceNestedInput
     items?: RecurringInvoiceItemUpdateManyWithoutRecurring_invoiceNestedInput
-    generated_invoices?: InvoiceUpdateManyWithoutSource_recurringNestedInput
   }
 
   export type RecurringInvoiceUncheckedUpdateWithoutClientInput = {
@@ -23840,8 +23832,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
     generated_invoices?: InvoiceUncheckedUpdateManyWithoutSource_recurringNestedInput
+    items?: RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceNestedInput
   }
 
   export type RecurringInvoiceUncheckedUpdateManyWithoutClientInput = {
@@ -23997,8 +23989,8 @@ export namespace Prisma {
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     notes?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
-    EWallet?: EWalletUpdateOneWithoutPaymentsNestedInput
     BankAccount?: BankAccountUpdateOneWithoutPaymentsNestedInput
+    EWallet?: EWalletUpdateOneWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutInvoiceInput = {
@@ -24025,15 +24017,6 @@ export namespace Prisma {
     bankAccountId?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
-  export type RecurringInvoiceItemCreateManyRecurring_invoiceInput = {
-    id?: number
-    product_id: number
-    description?: string | null
-    quantity: number
-    unit_price: Decimal | DecimalJsLike | number | string
-    tax_rate?: Decimal | DecimalJsLike | number | string | null
-  }
-
   export type InvoiceCreateManySource_recurringInput = {
     invoice_id?: number
     user_id: number
@@ -24053,30 +24036,13 @@ export namespace Prisma {
     deleted_at?: Date | string | null
   }
 
-  export type RecurringInvoiceItemUpdateWithoutRecurring_invoiceInput = {
-    description?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
-    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-    product?: ProductUpdateOneRequiredWithoutRecurringInvoiceItemNestedInput
-  }
-
-  export type RecurringInvoiceItemUncheckedUpdateWithoutRecurring_invoiceInput = {
-    id?: IntFieldUpdateOperationsInput | number
-    product_id?: IntFieldUpdateOperationsInput | number
-    description?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
-    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
-  }
-
-  export type RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceInput = {
-    id?: IntFieldUpdateOperationsInput | number
-    product_id?: IntFieldUpdateOperationsInput | number
-    description?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
-    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
-    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+  export type RecurringInvoiceItemCreateManyRecurring_invoiceInput = {
+    id?: number
+    product_id: number
+    description?: string | null
+    quantity: number
+    unit_price: Decimal | DecimalJsLike | number | string
+    tax_rate?: Decimal | DecimalJsLike | number | string | null
   }
 
   export type InvoiceUpdateWithoutSource_recurringInput = {
@@ -24093,8 +24059,8 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     client?: ClientUpdateOneRequiredWithoutInvoicesNestedInput
+    user?: UserUpdateOneRequiredWithoutInvoicesNestedInput
     items?: InvoiceItemUpdateManyWithoutInvoiceNestedInput
     payments?: PaymentUpdateManyWithoutInvoiceNestedInput
   }
@@ -24137,6 +24103,32 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  }
+
+  export type RecurringInvoiceItemUpdateWithoutRecurring_invoiceInput = {
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+    product?: ProductUpdateOneRequiredWithoutRecurringInvoiceItemNestedInput
+  }
+
+  export type RecurringInvoiceItemUncheckedUpdateWithoutRecurring_invoiceInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    product_id?: IntFieldUpdateOperationsInput | number
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
+  }
+
+  export type RecurringInvoiceItemUncheckedUpdateManyWithoutRecurring_invoiceInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    product_id?: IntFieldUpdateOperationsInput | number
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    unit_price?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    tax_rate?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
   }
 
 
