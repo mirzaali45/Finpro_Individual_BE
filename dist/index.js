@@ -31,7 +31,7 @@ const base_url_fe = process.env.BASE_URL_FE;
 const allowedOrigins = [
     base_url_fe,
     "http://localhost:3000",
-    "https://invoicepro-five.vercel.app",
+    "https://invoice-pro-ruby.vercel.app",
 ];
 // Initialize express app
 const app = (0, express_1.default)();
