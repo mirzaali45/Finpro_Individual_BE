@@ -901,6 +901,230 @@ class InvoiceController {
         });
     }
     // Revised addPayment function with correct bankAccountId and eWalletId usage
+    // async addPayment(req: Request, res: Response): Promise<void> {
+    //   try {
+    //     const userId = req.user?.user_id;
+    //     if (!userId) {
+    //       res.status(401).json({ message: "User not authenticated" });
+    //       return;
+    //     }
+    //     const {
+    //       invoice_id,
+    //       amount,
+    //       payment_date,
+    //       payment_method,
+    //       reference,
+    //       notes,
+    //       bank_account_id,
+    //       e_wallet_id,
+    //     } = req.body;
+    //     // Ensure invoice_id is converted to an integer
+    //     const invoiceId = parseInt(invoice_id, 10);
+    //     // Check if invoiceId is a valid number
+    //     if (isNaN(invoiceId)) {
+    //       res.status(400).json({ message: "Invalid invoice ID format" });
+    //       return;
+    //     }
+    //     // Check if invoice exists and belongs to the user with all required relations for PDF generation
+    //     const invoice = await prisma.invoice.findFirst({
+    //       where: {
+    //         invoice_id: invoiceId,
+    //         user_id: userId,
+    //         deleted_at: null,
+    //       },
+    //       include: {
+    //         client: true,
+    //         payments: true,
+    //         items: {
+    //           include: {
+    //             product: true,
+    //           },
+    //         },
+    //         user: {
+    //           include: {
+    //             profile: {
+    //               include: {
+    //                 bank_accounts: true,
+    //                 e_wallets: true,
+    //               },
+    //             },
+    //           },
+    //         },
+    //       },
+    //     });
+    //     if (!invoice) {
+    //       res.status(404).json({ message: "Invoice not found" });
+    //       return;
+    //     }
+    //     // Create payment data object with correct field names that match the Prisma schema
+    //     const paymentData: any = {
+    //       invoice_id: invoiceId,
+    //       amount: parseFloat(amount),
+    //       payment_date: new Date(payment_date),
+    //       payment_method,
+    //       reference: reference || null,
+    //       notes: notes || null,
+    //     };
+    //     // Add bankAccountId if payment method is BANK_TRANSFER and bank_account_id is provided
+    //     if (payment_method === "BANK_TRANSFER" && bank_account_id) {
+    //       const bankAccountIdInt = parseInt(bank_account_id, 10);
+    //       if (!isNaN(bankAccountIdInt)) {
+    //         paymentData.bankAccountId = bankAccountIdInt;
+    //       }
+    //     }
+    //     // Add eWalletId if payment method is E_WALLET and e_wallet_id is provided
+    //     if (payment_method === "E_WALLET" && e_wallet_id) {
+    //       const eWalletIdInt = parseInt(e_wallet_id, 10);
+    //       if (!isNaN(eWalletIdInt)) {
+    //         paymentData.eWalletId = eWalletIdInt;
+    //       }
+    //     }
+    //     // Create the payment with proper relations included
+    //     const payment = await prisma.payment.create({
+    //       data: paymentData,
+    //       include: {
+    //         BankAccount: true,
+    //         EWallet: true,
+    //       },
+    //     });
+    //     // Calculate total paid amount including the new payment
+    //     const totalPaid = [...invoice.payments, payment].reduce(
+    //       (sum, payment) => sum + parseFloat(payment.amount.toString()),
+    //       0
+    //     );
+    //     // Get the actual invoice total (considering discount if any)
+    //     const invoiceTotal = parseFloat(invoice.total_amount.toString());
+    //     // Update invoice status based on payment
+    //     let newStatus = invoice.status;
+    //     let statusChanged = false;
+    //     let isPartial = false;
+    //     if (totalPaid >= invoiceTotal) {
+    //       newStatus = "PAID" as InvoiceStatus;
+    //       statusChanged = true;
+    //     } else if (totalPaid > 0) {
+    //       newStatus = "PARTIAL" as InvoiceStatus;
+    //       statusChanged = true;
+    //       isPartial = true;
+    //     }
+    //     // Update invoice status in the database if changed
+    //     if (newStatus !== invoice.status) {
+    //       await prisma.invoice.update({
+    //         where: {
+    //           invoice_id: invoiceId,
+    //         },
+    //         data: {
+    //           status: newStatus,
+    //         },
+    //       });
+    //       // PENTING: Update status pada objek invoice di memori
+    //       // untuk memastikan PDF mencerminkan status terbaru
+    //       invoice.status = newStatus;
+    //     }
+    //     // Send payment confirmation email to client
+    //     if (invoice.client && invoice.client.email) {
+    //       try {
+    //         // Format amount with currency
+    //         const formattedAmount = new Intl.NumberFormat("id-ID", {
+    //           style: "currency",
+    //           currency: "IDR",
+    //           minimumFractionDigits: 0,
+    //           maximumFractionDigits: 0,
+    //         }).format(parseFloat(amount));
+    //         // Format payment date
+    //         const formattedPaymentDate = new Date(
+    //           payment_date
+    //         ).toLocaleDateString("id-ID", {
+    //           day: "numeric",
+    //           month: "long",
+    //           year: "numeric",
+    //         });
+    //         // Get business information
+    //         const businessName =
+    //           invoice.user?.profile?.company_name || "Your Business";
+    //         const businessEmail = invoice.user?.email || "";
+    //         const businessPhone = invoice.user?.phone || "";
+    //         const businessAddress = invoice.user?.profile?.address || "";
+    //         // Calculate remaining balance if partial payment
+    //         let remainingBalance;
+    //         if (isPartial) {
+    //           const remaining = invoiceTotal - totalPaid;
+    //           remainingBalance = new Intl.NumberFormat("id-ID", {
+    //             style: "currency",
+    //             currency: "IDR",
+    //             minimumFractionDigits: 0,
+    //             maximumFractionDigits: 0,
+    //           }).format(remaining);
+    //         }
+    //         // Create payment link if available
+    //         const paymentLink = process.env.PAYMENT_GATEWAY_URL
+    //           ? `${process.env.PAYMENT_GATEWAY_URL}/invoice/${invoiceId}`
+    //           : undefined;
+    //         // Get bank accounts and e-wallets for partial payments
+    //         const bankAccounts = isPartial
+    //           ? invoice.user?.profile?.bank_accounts || null
+    //           : null;
+    //         const eWallets = isPartial
+    //           ? invoice.user?.profile?.e_wallets || null
+    //           : null;
+    //         // Tambahkan pembayaran baru ke array payments
+    //         // Ini memastikan PDF melihat semua pembayaran termasuk yang baru ditambahkan
+    //         invoice.payments.push(payment);
+    //         // Generate PDF invoice for attachment with updated status
+    //         let pdfBuffer: Buffer | undefined;
+    //         try {
+    //           console.log(`Generating PDF with status: ${invoice.status}`);
+    //           pdfBuffer = await generateInvoicePdf(
+    //             invoice as unknown as InvoiceForPDF
+    //           );
+    //         } catch (pdfError) {
+    //           console.error(
+    //             "Failed to generate PDF for payment confirmation:",
+    //             pdfError
+    //           );
+    //           // Continue without PDF if generation fails
+    //         }
+    //         // Send payment confirmation email
+    //         await sendPaymentConfirmation(
+    //           invoice.client.email,
+    //           invoice.invoice_number,
+    //           businessName,
+    //           formattedAmount,
+    //           formattedPaymentDate,
+    //           payment_method,
+    //           newStatus,
+    //           invoice.client.name,
+    //           businessEmail,
+    //           businessPhone,
+    //           businessAddress,
+    //           isPartial,
+    //           remainingBalance,
+    //           pdfBuffer,
+    //           paymentLink,
+    //           bankAccounts,
+    //           eWallets
+    //         );
+    //         console.log(
+    //           `Payment confirmation email sent to ${invoice.client.email} for invoice ${invoice.invoice_number}`
+    //         );
+    //       } catch (emailError) {
+    //         console.error(
+    //           "Failed to send payment confirmation email:",
+    //           emailError
+    //         );
+    //         // Don't return an error to the client, just log it
+    //       }
+    //     }
+    //     res.status(201).json({
+    //       message: "Payment added successfully",
+    //       payment,
+    //       invoice_status: newStatus,
+    //       total_paid: totalPaid,
+    //       remaining_amount: Math.max(0, invoiceTotal - totalPaid),
+    //     });
+    //   } catch (error: any) {
+    //     this.handleError(res, error, "add payment");
+    //   }
+    // }
     addPayment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
@@ -918,6 +1142,7 @@ class InvoiceController {
                     res.status(400).json({ message: "Invalid invoice ID format" });
                     return;
                 }
+                console.log(`Processing payment for invoice ID: ${invoiceId}`);
                 // Check if invoice exists and belongs to the user with all required relations for PDF generation
                 const invoice = yield prisma.invoice.findFirst({
                     where: {
@@ -927,7 +1152,12 @@ class InvoiceController {
                     },
                     include: {
                         client: true,
-                        payments: true,
+                        payments: {
+                            include: {
+                                BankAccount: true,
+                                EWallet: true,
+                            },
+                        },
                         items: {
                             include: {
                                 product: true,
@@ -949,6 +1179,7 @@ class InvoiceController {
                     res.status(404).json({ message: "Invoice not found" });
                     return;
                 }
+                console.log(`Found invoice ${invoice.invoice_number} with ${invoice.payments.length} existing payments`);
                 // Create payment data object with correct field names that match the Prisma schema
                 const paymentData = {
                     invoice_id: invoiceId,
@@ -972,6 +1203,7 @@ class InvoiceController {
                         paymentData.eWalletId = eWalletIdInt;
                     }
                 }
+                console.log("Creating new payment record in database");
                 // Create the payment with proper relations included
                 const payment = yield prisma.payment.create({
                     data: paymentData,
@@ -980,8 +1212,13 @@ class InvoiceController {
                         EWallet: true,
                     },
                 });
+                console.log(`Payment record created with ID: ${payment.payment_id}`);
+                // Add the new payment to the invoice.payments array for PDF generation
+                // IMPORTANT: Create a copy to avoid modifying the original array
+                const updatedPayments = [...invoice.payments, payment];
                 // Calculate total paid amount including the new payment
-                const totalPaid = [...invoice.payments, payment].reduce((sum, payment) => sum + parseFloat(payment.amount.toString()), 0);
+                const totalPaid = updatedPayments.reduce((sum, payment) => sum + parseFloat(payment.amount.toString()), 0);
+                console.log(`Total paid amount: ${totalPaid}`);
                 // Get the actual invoice total (considering discount if any)
                 const invoiceTotal = parseFloat(invoice.total_amount.toString());
                 // Update invoice status based on payment
@@ -997,6 +1234,7 @@ class InvoiceController {
                     statusChanged = true;
                     isPartial = true;
                 }
+                console.log(`New invoice status: ${newStatus}, changed: ${statusChanged}, partial: ${isPartial}`);
                 // Update invoice status in the database if changed
                 if (newStatus !== invoice.status) {
                     yield prisma.invoice.update({
@@ -1007,10 +1245,12 @@ class InvoiceController {
                             status: newStatus,
                         },
                     });
-                    // PENTING: Update status pada objek invoice di memori
-                    // untuk memastikan PDF mencerminkan status terbaru
+                    console.log(`Invoice status updated in database to: ${newStatus}`);
+                    // Update status pada objek invoice di memori
                     invoice.status = newStatus;
                 }
+                // Create updated invoice object with new payment included for PDF generation
+                const invoiceForPdf = Object.assign(Object.assign({}, invoice), { payments: updatedPayments });
                 // Send payment confirmation email to client
                 if (invoice.client && invoice.client.email) {
                     try {
@@ -1054,21 +1294,22 @@ class InvoiceController {
                         const eWallets = isPartial
                             ? ((_l = (_k = invoice.user) === null || _k === void 0 ? void 0 : _k.profile) === null || _l === void 0 ? void 0 : _l.e_wallets) || null
                             : null;
-                        // Tambahkan pembayaran baru ke array payments
-                        // Ini memastikan PDF melihat semua pembayaran termasuk yang baru ditambahkan
-                        invoice.payments.push(payment);
-                        // Generate PDF invoice for attachment with updated status
+                        console.log("Generating PDF for payment confirmation email");
+                        // Generate PDF invoice with updated payment data and new status
+                        // Use a separate try-catch to ensure we still send an email even if PDF fails
                         let pdfBuffer;
                         try {
-                            console.log(`Generating PDF with status: ${invoice.status}`);
-                            pdfBuffer = yield (0, PdfGeneator_1.generateInvoicePdf)(invoice);
+                            pdfBuffer = yield (0, PdfGeneator_1.generateInvoicePdf)(invoiceForPdf);
+                            console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
                         }
                         catch (pdfError) {
                             console.error("Failed to generate PDF for payment confirmation:", pdfError);
-                            // Continue without PDF if generation fails
+                            // Will continue without PDF
                         }
-                        // Send payment confirmation email
-                        yield (0, mailer_1.sendPaymentConfirmation)(invoice.client.email, invoice.invoice_number, businessName, formattedAmount, formattedPaymentDate, payment_method, newStatus, invoice.client.name, businessEmail, businessPhone, businessAddress, isPartial, remainingBalance, pdfBuffer, paymentLink, bankAccounts, eWallets);
+                        console.log("Sending payment confirmation email");
+                        // Always try to send the email, with or without PDF
+                        yield (0, mailer_1.sendPaymentConfirmation)(invoice.client.email, invoice.invoice_number, businessName, formattedAmount, formattedPaymentDate, payment_method, newStatus, invoice.client.name, businessEmail, businessPhone, businessAddress, isPartial, remainingBalance, pdfBuffer, // This will be undefined if PDF generation failed
+                        paymentLink, bankAccounts, eWallets);
                         console.log(`Payment confirmation email sent to ${invoice.client.email} for invoice ${invoice.invoice_number}`);
                     }
                     catch (emailError) {
