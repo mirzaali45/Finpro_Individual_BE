@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice from {{businessName}}</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eaeaea;
+    }
+    .logo {
+      max-height: 60px;
+      margin-bottom: 15px;
+    }
+    .title {
+      color: #2c3e50;
+      font-size: 24px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .subtitle {
+      color: #7f8c8d;
+      font-size: 16px;
+      margin-top: 5px;
+    }
+    .content {
+      padding: 30px 0;
+    }
+    .invoice-details {
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 25px;
+    }
+    .invoice-details table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .invoice-details td {
+      padding: 8px 0;
+    }
+    .invoice-details td:first-child {
+      font-weight: 600;
+      width: 40%;
+    }
+    .amount {
+      font-size: 20px;
+      font-weight: 700;
+      color: #2980b9;
+    }
+    .payment-info {
+      background-color: #f0f7fb;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-left: 5px solid #3498db;
+    }
+    .payment-method {
+      margin-bottom: 10px;
+    }
+    .payment-method h4 {
+      margin-bottom: 5px;
+      color: #2c3e50;
+    }
+    .payment-method ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .payment-method .primary {
+      color: #27ae60;
+      font-weight: 600;
+    }
+    .payment-note {
+      font-style: italic;
+      margin-top: 10px;
+      color: #7f8c8d;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #3498db;
+      color: white;
+      text-decoration: none;
+      padding: 12px 25px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-align: center;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background-color: #2980b9;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .footer {
+      text-align: center;
+      color: #7f8c8d;
+      font-size: 14px;
+      padding-top: 20px;
+      border-top: 1px solid #eaeaea;
+    }
+    .contact {
+      margin-top: 15px;
+    }
+    .social-links {
+      margin-top: 15px;
+    }
+    .social-link {
+      display: inline-block;
+      margin: 0 5px;
+    }
+    @media (max-width: 600px) {
+      .container {
+        width: 100%;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      {{#if companyLogo}}
+      <img src="{{companyLogo}}" alt="{{businessName}}" class="logo">
+      {{/if}}
+      <h1 class="title">Invoice from {{businessName}}</h1>
+      <p class="subtitle">Thank you for your business!</p>
+    </div>
+    
+    <div class="content">
+      <p>Hello {{clientName}},</p>
+      
+      <p>We have attached an invoice for the products/services provided. You can find the invoice details below:</p>
+      
+      <div class="invoice-details">
+        <table>
+          <tr>
+            <td>Invoice Number:</td>
+            <td>{{invoiceNumber}}</td>
+          </tr>
+          <tr>
+            <td>Invoice Date:</td>
+            <td>{{issueDate}}</td>
+          </tr>
+          <tr>
+            <td>Due Date:</td>
+            <td>{{dueDate}}</td>
+          </tr>
+          <tr>
+            <td>Total Amount:</td>
+            <td class="amount">{{amount}}</td>
+          </tr>
+        </table>
+      </div>
+      
+      {{#if bankAccounts}}
+      <div class="payment-info">
+        <h3 style="margin-top: 0; color: #2c3e50;">Payment Information</h3>
+        <p>Please make your payment using one of the following methods:</p>
+        
+        {{#if bankAccounts}}
+        <div class="payment-method">
+          <h4>Bank Accounts:</h4>
+          <ul>
+            {{#each bankAccounts}}
+            <li>
+              <strong>{{this.bank_name}}:</strong> {{this.account_number}} ({{this.account_name}})
+              {{#if this.is_primary}}<span class="primary"> (Recommended)</span>{{/if}}
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+        {{/if}}
+        
+        {{#if eWallets}}
+        <div class="payment-method">
+          <h4>E-Wallets:</h4>
+          <ul>
+            {{#each eWallets}}
+            <li>
+              <strong>{{this.wallet_type}}:</strong> {{this.phone_number}} ({{this.account_name}})
+              {{#if this.is_primary}}<span class="primary"> (Recommended)</span>{{/if}}
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+        {{/if}}
+        
+        <p class="payment-note">Please include the invoice number {{invoiceNumber}} when making payment to help us verify your transaction. and if already please send proof of payment via email or phone number</p>
+      </div>
+      {{/if}}
+      
+      <p>The complete invoice has been attached as a PDF file to this email. Please check the attachment for a detailed breakdown of the invoice.</p>
+      
+      <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
+      
+      <div class="btn-container">
+        {{#if paymentLink}}
+        <a href="{{paymentLink}}" class="btn">Pay Now</a>
+        {{/if}}
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>&copy; {{currentYear}} {{businessName}}. All rights reserved.</p>
+      
+      <div class="contact">
+        {{#if businessPhone}}<span>Tel: {{businessPhone}}</span> | {{/if}}
+        {{#if businessEmail}}<span>Email: {{businessEmail}}</span>{{/if}}
+      </div>
+      
+      {{#if businessAddress}}
+      <p>{{businessAddress}}</p>
+      {{/if}}
+      
+      {{#if socialLinks}}
+      <div class="social-links">
+        {{#each socialLinks}}
+        <a href="{{this.url}}" class="social-link">{{this.name}}</a>
+        {{/each}}
+      </div>
+      {{/if}}
+    </div>
+  </div>
+</body>
+</html>
