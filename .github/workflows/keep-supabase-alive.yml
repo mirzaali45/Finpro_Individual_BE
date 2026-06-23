@@ -1,0 +1,29 @@
+name: Keep Supabase Alive
+
+# Prevents the Supabase free-tier project from auto-pausing after ~7 days of
+# inactivity by running a tiny query against the database on a schedule.
+
+on:
+  schedule:
+    # Runs every day at 06:00 UTC. GitHub may delay scheduled runs by a few
+    # minutes during peak load, so a daily cadence keeps a safe margin under
+    # the ~7-day inactivity window.
+    - cron: "0 6 * * *"
+  # Allows manual trigger from the Actions tab for testing.
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase database
+        env:
+          # Add this in: GitHub repo > Settings > Secrets and variables >
+          # Actions > New repository secret (name: SUPABASE_DB_URL).
+          # Use the value of DIRECT_URL from your .env (port 5432) and append
+          # ?sslmode=require to the end, e.g.:
+          #   postgresql://postgres.xxxx:PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+          # Do NOT use DATABASE_URL (port 6543 / pgbouncer=true) -- psql can't parse it.
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SUPABASE_DB_URL" -c "SELECT 1 AS keep_alive;"
